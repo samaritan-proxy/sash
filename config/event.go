@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package config
 
-import "github.com/samaritan-proxy/sash/model"
+import (
+	"github.com/samaritan-proxy/sash/model"
+)
 
 // EventType indicates the type of event.
 type EventType uint8
@@ -26,22 +28,21 @@ const (
 	EventDelete
 )
 
-// ServiceEvent represents a service event.
-type ServiceEvent struct {
-	Type    EventType
-	Service *model.Service
+// SvcConfigEvent represents a config event.
+type SvcConfigEvent struct {
+	Type   EventType
+	Config *model.ServiceConfig
 }
 
-// InstanceEvent represents a instance event.
-type InstanceEvent struct {
-	Type        EventType
-	ServiceName string
-	Instances   []*model.ServiceInstance
+// NewSvcConfigEvent return a new SvcConfigEvent.
+func NewSvcConfigEvent(typ EventType, config *model.ServiceConfig) *SvcConfigEvent {
+	return &SvcConfigEvent{
+		Type:   typ,
+		Config: config,
+	}
 }
 
 type (
-	// ServiceEventHandler is used to handle the service event.
-	ServiceEventHandler func(event *ServiceEvent)
-	// InstanceEventHandler is used to handel instance event.
-	InstanceEventHandler func(event *InstanceEvent)
+	// EventHandler is used to handle the config event.
+	EventHandler func(event *SvcConfigEvent)
 )
