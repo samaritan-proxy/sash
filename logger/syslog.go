@@ -12,30 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package registry
+package logger
 
-import "github.com/samaritan-proxy/sash/model"
+import "log/syslog"
 
-type EventType uint8
-
-const (
-	EventAdd EventType = iota + 1
-	EventUpdate
-	EventDelete
-)
-
-type ServiceEvent struct {
-	Type    EventType
-	Service *model.Service
+func newSysLogWriter(host string, priority syslog.Priority, tag string) (*syslog.Writer, error) {
+	if len(host) > 0 {
+		return syslog.Dial("udp", host, priority, tag)
+	}
+	return syslog.Dial("udp", ":514", priority, tag)
 }
-
-type InstanceEvent struct {
-	Type        EventType
-	ServiceName string
-	Instances   []*model.ServiceInstance
-}
-
-type (
-	ServiceEventHandler  func(event *ServiceEvent)
-	InstanceEventHandler func(event *InstanceEvent)
-)
