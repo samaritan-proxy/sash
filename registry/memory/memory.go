@@ -15,15 +15,20 @@
 package memory
 
 import (
+	"context"
+
 	"github.com/samaritan-proxy/sash/model"
 )
 
 var _ model.ServiceRegistry = new(Registry)
 
+// Register is an implementation of model.ServiceRegistry.
 type Registry struct {
 	services map[string]*model.Service
 }
 
+// NewRegistry creates a memory service registry.
+// NOTE: It is designed for unit tests, all methods aren't goroutine-safe.
 func NewRegistry(services []*model.Service) *Registry {
 	m := make(map[string]*model.Service, len(services))
 	for _, service := range services {
@@ -34,8 +39,10 @@ func NewRegistry(services []*model.Service) *Registry {
 	}
 }
 
-func (r *Registry) Run(stop <-chan struct{}) {}
+// Run runs the registry.
+func (r *Registry) Run(ctx context.Context) {}
 
+// List returns all registered service names.
 func (r *Registry) List() ([]string, error) {
 	names := make([]string, 0, len(r.services))
 	for name := range r.services {
@@ -44,11 +51,13 @@ func (r *Registry) List() ([]string, error) {
 	return names, nil
 }
 
+// Get gets the service info with the given name.
 func (r *Registry) Get(name string) (*model.Service, error) {
 	return r.services[name], nil
 }
 
-func (r *Registry) DeleteService(name string) bool {
+// Deregister deregisters a service.
+func (r *Registry) Deregister(name string) bool {
 	_, ok := r.services[name]
 	if !ok {
 		return false
@@ -57,14 +66,17 @@ func (r *Registry) DeleteService(name string) bool {
 	return true
 }
 
-func (r *Registry) AddService(service *model.Service) {
+// Register registers a service.
+func (r *Registry) Register(service *model.Service) {
 	r.services[service.Name] = service
 }
 
+// AddInstance adds some instances to the specificed service.
 func (r *Registry) AddInstance(name string, instances ...*model.ServiceInstance) {
 	r.addOrUpdateInstance(name, instances...)
 }
 
+// UpdateInstance updates some instances of the specificed service.
 func (r *Registry) UpdateInstance(name string, instances ...*model.ServiceInstance) {
 	r.addOrUpdateInstance(name, instances...)
 }
@@ -81,6 +93,7 @@ func (r *Registry) addOrUpdateInstance(name string, instances ...*model.ServiceI
 	}
 }
 
+// DeleteInstance deletes some instances from the specificed service.
 func (r *Registry) DeleteInstance(name string, instances ...*model.ServiceInstance) {
 	service, ok := r.services[name]
 	if !ok {

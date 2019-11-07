@@ -14,23 +14,34 @@
 
 package model
 
+import "context"
+
 // Service represents a service.
 type Service struct {
 	Name      string
 	Instances map[string]*ServiceInstance
 }
 
+// ServiceInstanceState indicates the state of service instance.
+type ServiceInstanceState uint8
+
+// The following shows the available states of service instance.
+const (
+	StateHealty ServiceInstanceState = iota
+	StateUnhealthy
+)
+
 // ServiceInstance represents an instance of service.
 type ServiceInstance struct {
 	Addr  string
-	State uint8
+	State ServiceInstanceState
 	Meta  map[string]string
 }
 
 // ServiceRegistry represents a service registry.
 type ServiceRegistry interface {
-	// Run starts the registry unitl a stop signal received.
-	Run(stop <-chan struct{})
+	// Run runs the registry unitl a stop signal received.
+	Run(ctx context.Context)
 
 	// List returns all registerd service names.
 	List() ([]string, error)
