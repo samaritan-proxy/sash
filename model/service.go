@@ -22,6 +22,18 @@ type Service struct {
 	Instances map[string]*ServiceInstance
 }
 
+// NewService creates a service.
+func NewService(name string, insts ...*ServiceInstance) *Service {
+	service := &Service{
+		Name:      name,
+		Instances: make(map[string]*ServiceInstance),
+	}
+	for _, inst := range insts {
+		service.Instances[inst.Addr] = inst
+	}
+	return service
+}
+
 // ServiceInstanceState indicates the state of service instance.
 type ServiceInstanceState uint8
 
@@ -36,6 +48,15 @@ type ServiceInstance struct {
 	Addr  string
 	State ServiceInstanceState
 	Meta  map[string]string
+}
+
+// NewServerInstance creates a plain service instance.
+func NewServiceInstance(addr string) *ServiceInstance {
+	return &ServiceInstance{
+		Addr:  addr,
+		State: StateHealty,
+		Meta:  make(map[string]string),
+	}
 }
 
 // ServiceRegistry represents a service registry.

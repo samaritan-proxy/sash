@@ -15,9 +15,15 @@
 package registry
 
 import (
+	"context"
+	"errors"
+	"reflect"
 	"testing"
 	"time"
 
+	gomock "github.com/golang/mock/gomock"
+	"github.com/samaritan-proxy/sash/model"
+	"github.com/samaritan-proxy/sash/registry/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,4 +43,248 @@ func TestSetSyncJitterOption(t *testing.T) {
 	o := SyncJitter(jitter)
 	o(opts)
 	assert.Equal(t, jitter, opts.syncJitter)
+}
+
+func TestCacheSyncFail(t *testing.T) {
+	t.Run("get services", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		r := NewMockServiceRegistry(ctrl)
+		r.EXPECT().
+			List().
+			Return(nil, errors.New("internal error"))
+
+		c := newCache(r)
+		err := c.Sync(context.TODO())
+		assert.Error(t, err)
+	})
+
+	t.Run("retry timeout", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		// decrease the max retry interval
+		oldMaxInterval := defaultBackoffMaxInterval
+		defer func() { defaultBackoffMaxInterval = oldMaxInterval }()
+		defaultBackoffMaxInterval = 150 * time.Millisecond
+
+		r := NewMockServiceRegistry(ctrl)
+		r.EXPECT().List().Return([]string{"foo"}, nil)
+		r.EXPECT().
+			Get("foo").
+			Return(nil, errors.New("internal error")).
+			MaxTimes(defaultBackoffMaxRetries + 1)
+
+		c := newCache(r)
+		err := c.Sync(context.TODO())
+		assert.Error(t, err)
+	})
+
+	t.Run("cancel when retrying", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		var retries = new(int)
+		r := NewMockServiceRegistry(ctrl)
+		r.EXPECT().List().Return([]string{"foo"}, nil)
+		r.EXPECT().
+			Get("foo").
+			DoAndReturn(func(string) (*model.Service, error) {
+				*retries = *retries + 1
+				return nil, errors.New("internal error")
+			}).
+			MaxTimes(defaultBackoffMaxRetries + 1)
+
+		c := newCache(r)
+		ctx, cancel := context.WithCancel(context.TODO())
+		time.AfterFunc(time.Second, cancel)
+		err := c.Sync(ctx)
+		assert.Error(t, err)
+		assert.True(t, *retries < defaultBackoffMaxRetries+1)
+	})
+}
+
+func TestCacheSyncSuccess(t *testing.T) {
+	t.Run("normal", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		r := NewMockServiceRegistry(ctrl)
+		r.EXPECT().
+			List().
+			Return([]string{"foo"}, nil)
+		r.EXPECT().
+			Get("foo").
+			Return(model.NewService("foo"), nil)
+
+		c := newCache(r)
+		err := c.Sync(context.TODO())
+		assert.NoError(t, err)
+		assert.Len(t, c.services, 1)
+		assert.NotNil(t, c.services["foo"])
+	})
+
+	t.Run("auto retry", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		r := NewMockServiceRegistry(ctrl)
+		r.EXPECT().
+			List().
+			Return([]string{"foo", "bar", "zoo"}, nil)
+		maxRetries := defaultBackoffMaxRetries / 2
+		retries := make(map[string]int)
+		f := func(name string) (*model.Service, error) {
+			if retries[name] == maxRetries {
+				return model.NewService(name), nil
+			}
+			retries[name]++
+			return nil, errors.New("server is busy")
+		}
+		r.EXPECT().Get("foo").DoAndReturn(f).AnyTimes()
+		r.EXPECT().Get("bar").DoAndReturn(f).AnyTimes()
+		r.EXPECT().Get("zoo").DoAndReturn(f).AnyTimes()
+
+		// decrease the max retry interval
+		oldMaxInterval := defaultBackoffMaxInterval
+		defer func() { defaultBackoffMaxInterval = oldMaxInterval }()
+		defaultBackoffMaxInterval = 150 * time.Millisecond
+
+		c := newCache(r)
+		err := c.Sync(context.TODO())
+		assert.NoError(t, err)
+		assert.Len(t, c.services, 3)
+		assert.NotNil(t, c.services["foo"])
+		assert.NotNil(t, c.services["bar"])
+		assert.NotNil(t, c.services["zoo"])
+	})
+}
+
+func findServiceEvent(all []*ServiceEvent, target *ServiceEvent) bool {
+	for _, event := range all {
+		if !reflect.DeepEqual(event, target) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func findInstanceEvent(all []*InstanceEvent, target *InstanceEvent) bool {
+	for _, event := range all {
+		if !reflect.DeepEqual(event, target) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func TestCacheOmitServiceEvents(t *testing.T) {
+	svc1 := model.NewService("svc1")
+	svc2 := model.NewService(
+		"svc2",
+		model.NewServiceInstance("127.0.0.1:8888"),
+		model.NewServiceInstance("127.0.0.1:8889"),
+	)
+	r := memory.NewRegistry([]*model.Service{svc1, svc2})
+
+	c := newCache(r)
+	err := c.Sync(context.TODO())
+	assert.NoError(t, err)
+
+	// register handlers
+	svcEvts := make([]*ServiceEvent, 0, 32)
+	svcHandler := func(event *ServiceEvent) {
+		svcEvts = append(svcEvts, event)
+	}
+	c.RegisterServiceEventHandler(svcHandler)
+
+	// simulate service changes
+	// delete svc1
+	r.Deregister("svc1")
+	// add svc3
+	svc3 := model.NewService(
+		"svc3",
+		model.NewServiceInstance("127.0.0.1:9999"),
+	)
+	r.Register(svc3)
+
+	err = c.Sync(context.TODO())
+	assert.NoError(t, err)
+	// assert events
+	assert.Equal(t, 2, len(svcEvts))
+	assert.True(t, findServiceEvent(
+		svcEvts,
+		&ServiceEvent{
+			Type:    EventDelete,
+			Service: svc1,
+		},
+	))
+	assert.True(t, findServiceEvent(
+		svcEvts,
+		&ServiceEvent{
+			Type:    EventAdd,
+			Service: svc3,
+		},
+	))
+}
+
+func TestCacheOmitInstanceEvents(t *testing.T) {
+	inst1 := model.NewServiceInstance("127.0.0.1:8888")
+	inst2 := model.NewServiceInstance("127.0.0.1:8889")
+	svcName := "svc1"
+	svc := model.NewService(svcName, inst1, inst2)
+	r := memory.NewRegistry([]*model.Service{svc})
+
+	c := newCache(r)
+	err := c.Sync(context.TODO())
+	assert.NoError(t, err)
+
+	// register handlers
+	instEvts := make([]*InstanceEvent, 0, 32)
+	instHandler := func(event *InstanceEvent) {
+		instEvts = append(instEvts, event)
+	}
+	c.RegisterInstanceEventHandler(instHandler)
+
+	// simulate instances changes
+	// delete inst1
+	r.DeleteInstance("svc1", inst1)
+	// update inst2
+	inst2.State = model.StateUnhealthy
+	// add inst3
+	inst3 := model.NewServiceInstance("127.0.0.1:9999")
+	r.AddInstance("svc1", inst3)
+
+	err = c.Sync(context.TODO())
+	assert.NoError(t, err)
+
+	// assert events
+	assert.Equal(t, 3, len(instEvts))
+	assert.True(t, findInstanceEvent(
+		instEvts,
+		&InstanceEvent{
+			Type:        EventDelete,
+			ServiceName: svcName,
+			Instances:   []*model.ServiceInstance{inst1},
+		},
+	))
+	assert.True(t, findInstanceEvent(
+		instEvts,
+		&InstanceEvent{
+			Type:        EventUpdate,
+			ServiceName: svcName,
+			Instances:   []*model.ServiceInstance{inst2},
+		},
+	))
+	assert.True(t, findInstanceEvent(
+		instEvts,
+		&InstanceEvent{
+			Type:        EventAdd,
+			ServiceName: svcName,
+			Instances:   []*model.ServiceInstance{inst3},
+		},
+	))
 }

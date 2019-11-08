@@ -51,9 +51,33 @@ func (r *Registry) List() ([]string, error) {
 	return names, nil
 }
 
+func cloneService(svc *model.Service) *model.Service {
+	another := &model.Service{
+		Name:      svc.Name,
+		Instances: make(map[string]*model.ServiceInstance, len(svc.Instances)),
+	}
+	for name, instance := range svc.Instances {
+		another.Instances[name] = cloneInstance(instance)
+	}
+	return another
+}
+
+func cloneInstance(inst *model.ServiceInstance) *model.ServiceInstance {
+	another := &model.ServiceInstance{
+		Addr:  inst.Addr,
+		State: inst.State,
+		Meta:  inst.Meta,
+	}
+	return another
+}
+
 // Get gets the service info with the given name.
 func (r *Registry) Get(name string) (*model.Service, error) {
-	return r.services[name], nil
+	service, ok := r.services[name]
+	if !ok {
+		return nil, nil
+	}
+	return cloneService(service), nil
 }
 
 // Deregister deregisters a service.
@@ -73,15 +97,6 @@ func (r *Registry) Register(service *model.Service) {
 
 // AddInstance adds some instances to the specificed service.
 func (r *Registry) AddInstance(name string, instances ...*model.ServiceInstance) {
-	r.addOrUpdateInstance(name, instances...)
-}
-
-// UpdateInstance updates some instances of the specificed service.
-func (r *Registry) UpdateInstance(name string, instances ...*model.ServiceInstance) {
-	r.addOrUpdateInstance(name, instances...)
-}
-
-func (r *Registry) addOrUpdateInstance(name string, instances ...*model.ServiceInstance) {
 	service, ok := r.services[name]
 	if !ok {
 		return

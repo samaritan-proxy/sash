@@ -22,28 +22,9 @@ import (
 	"github.com/samaritan-proxy/sash/model"
 )
 
-func newTestService(name string, insts ...*model.ServiceInstance) *model.Service {
-	service := &model.Service{
-		Name:      name,
-		Instances: make(map[string]*model.ServiceInstance),
-	}
-	for _, inst := range insts {
-		service.Instances[inst.Addr] = inst
-	}
-	return service
-}
-
-func newTestInstance(addr string) *model.ServiceInstance {
-	return &model.ServiceInstance{
-		Addr:  addr,
-		State: model.StateHealty,
-		Meta:  make(map[string]string),
-	}
-}
-
 func TestList(t *testing.T) {
 	name := "foo"
-	service := newTestService(name)
+	service := model.NewService(name)
 	r := NewRegistry([]*model.Service{service})
 	names, _ := r.List()
 	assert.Equal(t, []string{"foo"}, names)
@@ -51,7 +32,7 @@ func TestList(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	name := "foo"
-	r := NewRegistry([]*model.Service{newTestService(name)})
+	r := NewRegistry([]*model.Service{model.NewService(name)})
 	service, _ := r.Get(name)
 	assert.NotNil(t, service)
 }
@@ -61,7 +42,7 @@ func TestRegister(t *testing.T) {
 	names, _ := r.List()
 	assert.Len(t, names, 0)
 
-	service := newTestService("foo")
+	service := model.NewService("foo")
 	r.Register(service)
 	names, _ = r.List()
 	assert.Len(t, names, 1)
@@ -69,7 +50,7 @@ func TestRegister(t *testing.T) {
 
 func TestDeregister(t *testing.T) {
 	name := "foo"
-	service := newTestService(name)
+	service := model.NewService(name)
 	r := NewRegistry([]*model.Service{service})
 	names, _ := r.List()
 	assert.Len(t, names, 1)
@@ -81,36 +62,21 @@ func TestDeregister(t *testing.T) {
 
 func TestAddInstance(t *testing.T) {
 	name := "foo"
-	r := NewRegistry([]*model.Service{newTestService(name)})
+	r := NewRegistry([]*model.Service{model.NewService(name)})
 	service, _ := r.Get(name)
 	assert.Len(t, service.Instances, 0)
 
-	inst := newTestInstance("1.1.1.1")
+	inst := model.NewServiceInstance("1.1.1.1")
 	r.AddInstance(name, inst)
 	service, _ = r.Get(name)
 	assert.Len(t, service.Instances, 1)
 }
 
-func TestUpdateInstance(t *testing.T) {
-	name := "foo"
-	inst1 := newTestInstance("1.1.1.1")
-	r := NewRegistry([]*model.Service{
-		newTestService("foo", inst1),
-	})
-
-	inst2 := newTestInstance("1.1.1.1")
-	inst2.State = model.StateUnhealthy
-	r.UpdateInstance(name, inst2)
-	service, _ := r.Get(name)
-	assert.Len(t, service.Instances, 1)
-	assert.NotEqual(t, inst1, service.Instances[inst2.Addr])
-}
-
 func TestDeleteInstance(t *testing.T) {
-	inst := newTestInstance("1.1.1.1")
+	inst := model.NewServiceInstance("1.1.1.1")
 	name := "foo"
 	r := NewRegistry([]*model.Service{
-		newTestService(name, inst),
+		model.NewService(name, inst),
 	})
 	service, _ := r.Get(name)
 	assert.Len(t, service.Instances, 1)

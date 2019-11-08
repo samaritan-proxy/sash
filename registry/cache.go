@@ -26,11 +26,14 @@ import (
 	"github.com/samaritan-proxy/sash/model"
 )
 
+//go:generate mockgen -source ../model/service.go -destination mock_registry_test.go -package registry
+
 var (
 	defaultBackoffInitialInterval     = 100 * time.Millisecond
 	defaultBackoffRandomizationFactor = 0.2
 	defaultBackoffMultiplier          = 1.6
 	defaultBackoffMaxInterval         = time.Second
+	defaultBackoffMaxRetries          = 10
 )
 
 type cacheOptions struct {
@@ -73,10 +76,10 @@ type Cache interface {
 	RegisterInstanceEventHandler(handler InstanceEventHandler)
 }
 
-// Newcache creates a cache container for service registry.
-func Newcache(r model.ServiceRegistry, opts ...cacheOption) Cache {
+// NewCache creates a cache container for service registry.
+func NewCache(r model.ServiceRegistry, opts ...cacheOption) Cache {
 	c, ok := r.(Cache)
-	// If already implements the Cache interface, return it immediately.
+	// if already implements the Cache interface, return it immediately.
 	if ok {
 		return c
 	}
@@ -85,14 +88,13 @@ func Newcache(r model.ServiceRegistry, opts ...cacheOption) Cache {
 
 // cache is an implementation of Cache.
 type cache struct {
-	rwMu sync.RWMutex
-	r    model.ServiceRegistry
+	rwMu    sync.RWMutex
+	options *cacheOptions
+	r       model.ServiceRegistry
 
-	options     *cacheOptions
+	services    map[string]*model.Service
 	svcEvtHdls  []ServiceEventHandler
 	instEvtHdls []InstanceEventHandler
-
-	services map[string]*model.Service
 }
 
 func newCache(r model.ServiceRegistry, opts ...cacheOption) *cache {
@@ -103,8 +105,11 @@ func newCache(r model.ServiceRegistry, opts ...cacheOption) *cache {
 	}
 
 	return &cache{
-		r:       r,
-		options: o,
+		r:           r,
+		options:     o,
+		services:    make(map[string]*model.Service),
+		svcEvtHdls:  make([]ServiceEventHandler, 0, 1),
+		instEvtHdls: make([]InstanceEventHandler, 0, 1),
 	}
 }
 
@@ -151,7 +156,7 @@ func (c *cache) Run(ctx context.Context) {
 
 	for {
 		startTime := time.Now()
-		err := c.sync(ctx)
+		err := c.Sync(ctx)
 		select {
 		case <-ctx.Done():
 			return
@@ -180,46 +185,118 @@ func (c *cache) Run(ctx context.Context) {
 	}
 }
 
-func (c *cache) sync(ctx context.Context) error {
-	// load
-	newServices, err := c.loadFromRegistry(ctx)
+func (c *cache) Sync(ctx context.Context) error {
+	names, err := c.r.List()
 	if err != nil {
 		return err
 	}
 
-	// diff
-	c.diffServices(c.services, newServices)
+	// remove the outdated services.
+	c.deleteOutdatedServices(names)
 
-	// save
-	c.rwMu.Lock()
-	c.services = newServices
-	c.rwMu.Unlock()
+	eb := &backoff.ExponentialBackOff{
+		InitialInterval:     defaultBackoffInitialInterval,
+		RandomizationFactor: defaultBackoffRandomizationFactor,
+		Multiplier:          defaultBackoffMultiplier,
+		MaxInterval:         defaultBackoffMaxInterval,
+		Clock:               backoff.SystemClock,
+	}
+	// the total retry time is under six seconds.
+	b := backoff.WithMaxRetries(eb, uint64(defaultBackoffMaxRetries))
+	// TODO: improve the performace with concurrency.
+	for _, name := range names {
+		b.Reset()
+
+		var (
+			err     error
+			service *model.Service
+		)
+	Retry:
+		for {
+			service, err = c.r.Get(name)
+			if err == nil {
+				break
+			}
+
+			d := b.NextBackOff()
+			// exceeded the max retry times
+			if d == backoff.Stop {
+				break
+			}
+
+			t := time.NewTimer(d)
+			select {
+			case <-ctx.Done():
+				break Retry
+			case <-t.C:
+			}
+		}
+
+		if err != nil {
+			return err
+		}
+		c.addOrUpdateService(service)
+	}
 	return nil
 }
 
-func (c *cache) diffServices(oldServices, newServices map[string]*model.Service) {
-	// deleted
-	for name, service := range oldServices {
-		_, ok := newServices[name]
-		if !ok {
-			c.handleServiceDelete(service)
-		}
+func (c *cache) deleteOutdatedServices(newServiceNames []string) {
+	// build map to speed up lookup
+	m := make(map[string]struct{}, len(newServiceNames))
+	for _, name := range newServiceNames {
+		m[name] = struct{}{}
 	}
 
-	// added or updated
-	for name, newService := range newServices {
-		oldService, ok := oldServices[name]
+	var needDelete []*model.Service
+	c.rwMu.RLock()
+	for name, service := range c.services {
+		_, ok := m[name]
 		if !ok {
-			c.handleServiceAdd(newService)
-			continue
+			needDelete = append(needDelete, service)
 		}
+	}
+	c.rwMu.RUnlock()
 
-		// diff them
-		c.diffService(oldService, newService)
+	for _, service := range needDelete {
+		c.deleteService(service)
 	}
 }
 
-func (c *cache) diffService(oldService, newService *model.Service) {
+func (c *cache) deleteService(service *model.Service) {
+	c.rwMu.Lock()
+	delete(c.services, service.Name)
+	c.rwMu.Unlock()
+	event := &ServiceEvent{
+		Type:    EventDelete,
+		Service: service,
+	}
+	c.dispatchServiceEvent(event)
+}
+
+func (c *cache) addOrUpdateService(newService *model.Service) {
+	name := newService.Name
+	c.rwMu.RLock()
+	oldService, ok := c.services[name]
+	c.rwMu.RUnlock()
+	if !ok {
+		c.addService(newService)
+		return
+	}
+	c.updateService(oldService, newService)
+}
+
+func (c *cache) addService(service *model.Service) {
+	c.rwMu.Lock()
+	c.services[service.Name] = service
+	c.rwMu.Unlock()
+	event := &ServiceEvent{
+		Type:    EventAdd,
+		Service: service,
+	}
+	c.dispatchServiceEvent(event)
+}
+
+func (c *cache) updateService(oldService, newService *model.Service) {
 	serviceName := oldService.Name
 	oldInstances := oldService.Instances
 	newInstances := newService.Instances
@@ -248,16 +325,50 @@ func (c *cache) diffService(oldService, newService *model.Service) {
 		}
 	}
 
-	// should handle add event first.
-	if len(added) != 0 {
-		c.handleInstanceAdd(serviceName, added)
+	c.rwMu.Lock()
+	c.services[serviceName] = newService
+	c.rwMu.Unlock()
+
+	// should emit add event first.
+	c.addInstances(serviceName, added)
+	c.updateInstances(serviceName, updated)
+	c.deleteInstances(serviceName, deleted)
+}
+
+func (c *cache) addInstances(serviceName string, instances []*model.ServiceInstance) {
+	if len(instances) == 0 {
+		return
 	}
-	if len(updated) != 0 {
-		c.handleInstanceUpdate(serviceName, updated)
+	event := &InstanceEvent{
+		Type:        EventAdd,
+		ServiceName: serviceName,
+		Instances:   instances,
 	}
-	if len(deleted) != 0 {
-		c.handleInstanceDelete(serviceName, deleted)
+	c.dispatchInstanceEvent(event)
+}
+
+func (c *cache) updateInstances(serviceName string, instances []*model.ServiceInstance) {
+	if len(instances) == 0 {
+		return
 	}
+	event := &InstanceEvent{
+		Type:        EventUpdate,
+		ServiceName: serviceName,
+		Instances:   instances,
+	}
+	c.dispatchInstanceEvent(event)
+}
+
+func (c *cache) deleteInstances(serviceName string, instances []*model.ServiceInstance) {
+	if len(instances) == 0 {
+		return
+	}
+	event := &InstanceEvent{
+		Type:        EventDelete,
+		ServiceName: serviceName,
+		Instances:   instances,
+	}
+	c.dispatchInstanceEvent(event)
 }
 
 func isInstanceEqual(inst1, inst2 *model.ServiceInstance) bool {
@@ -274,109 +385,15 @@ func isInstanceEqual(inst1, inst2 *model.ServiceInstance) bool {
 	return true
 }
 
-func (c *cache) loadFromRegistry(ctx context.Context) (map[string]*model.Service, error) {
-	names, err := c.r.List()
-	if err != nil {
-		return nil, err
-	}
-
-	eb := &backoff.ExponentialBackOff{
-		InitialInterval:     defaultBackoffInitialInterval,
-		RandomizationFactor: defaultBackoffRandomizationFactor,
-		Multiplier:          defaultBackoffMultiplier,
-		MaxInterval:         defaultBackoffMaxInterval,
-	}
-	// the total retry time is under six seconds.
-	b := backoff.WithMaxRetries(eb, 10)
-	services := make(map[string]*model.Service, len(names))
-	// TODO: improve the performace with concurrency.
-	for _, name := range names {
-		b.Reset()
-
-		var (
-			err     error
-			service *model.Service
-		)
-		for {
-			service, err = c.r.Get(name)
-			if err == nil {
-				break
-			}
-
-			d := b.NextBackOff()
-			// exceeded the max retry times
-			if d == backoff.Stop {
-				break
-			}
-
-			t := time.NewTimer(d)
-			select {
-			case <-ctx.Done():
-				break
-			case <-t.C:
-			}
-		}
-
-		if err != nil {
-			return nil, err
-		}
-		services[name] = service
-	}
-	return services, nil
-}
-
-func (c *cache) handleServiceAdd(service *model.Service) {
-	event := &ServiceEvent{
-		Type:    EventAdd,
-		Service: service,
-	}
-	c.handleServiceEvent(event)
-}
-
-func (c *cache) handleServiceDelete(service *model.Service) {
-	event := &ServiceEvent{
-		Type:    EventDelete,
-		Service: service,
-	}
-	c.handleServiceEvent(event)
-}
-
-func (c *cache) handleServiceEvent(event *ServiceEvent) {
-	for i := len(c.svcEvtHdls) - 1; i >= 0; i-- {
+func (c *cache) dispatchServiceEvent(event *ServiceEvent) {
+	for i := 0; i < len(c.svcEvtHdls); i++ {
 		handler := c.svcEvtHdls[i]
 		handler(event)
 	}
 }
 
-func (c *cache) handleInstanceAdd(serviceName string, instances []*model.ServiceInstance) {
-	event := &InstanceEvent{
-		Type:        EventAdd,
-		ServiceName: serviceName,
-		Instances:   instances,
-	}
-	c.handleInstanceEvent(event)
-}
-
-func (c *cache) handleInstanceUpdate(serviceName string, instances []*model.ServiceInstance) {
-	event := &InstanceEvent{
-		Type:        EventUpdate,
-		ServiceName: serviceName,
-		Instances:   instances,
-	}
-	c.handleInstanceEvent(event)
-}
-
-func (c *cache) handleInstanceDelete(serviceName string, instances []*model.ServiceInstance) {
-	event := &InstanceEvent{
-		Type:        EventDelete,
-		ServiceName: serviceName,
-		Instances:   instances,
-	}
-	c.handleInstanceEvent(event)
-}
-
-func (c *cache) handleInstanceEvent(event *InstanceEvent) {
-	for i := len(c.instEvtHdls) - 1; i >= 0; i-- {
+func (c *cache) dispatchInstanceEvent(event *InstanceEvent) {
+	for i := 0; i < len(c.instEvtHdls); i++ {
 		handler := c.instEvtHdls[i]
 		handler(event)
 	}
