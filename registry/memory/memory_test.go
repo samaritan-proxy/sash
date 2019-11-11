@@ -25,20 +25,20 @@ import (
 func TestList(t *testing.T) {
 	name := "foo"
 	service := model.NewService(name)
-	r := NewRegistry([]*model.Service{service})
+	r := NewRegistry(service)
 	names, _ := r.List()
 	assert.Equal(t, []string{"foo"}, names)
 }
 
 func TestGet(t *testing.T) {
 	name := "foo"
-	r := NewRegistry([]*model.Service{model.NewService(name)})
+	r := NewRegistry(model.NewService(name))
 	service, _ := r.Get(name)
 	assert.NotNil(t, service)
 }
 
 func TestRegister(t *testing.T) {
-	r := NewRegistry(nil)
+	r := NewRegistry()
 	names, _ := r.List()
 	assert.Len(t, names, 0)
 
@@ -51,7 +51,7 @@ func TestRegister(t *testing.T) {
 func TestDeregister(t *testing.T) {
 	name := "foo"
 	service := model.NewService(name)
-	r := NewRegistry([]*model.Service{service})
+	r := NewRegistry(service)
 	names, _ := r.List()
 	assert.Len(t, names, 1)
 
@@ -62,7 +62,7 @@ func TestDeregister(t *testing.T) {
 
 func TestAddInstance(t *testing.T) {
 	name := "foo"
-	r := NewRegistry([]*model.Service{model.NewService(name)})
+	r := NewRegistry(model.NewService(name))
 	service, _ := r.Get(name)
 	assert.Len(t, service.Instances, 0)
 
@@ -75,9 +75,9 @@ func TestAddInstance(t *testing.T) {
 func TestDeleteInstance(t *testing.T) {
 	inst := model.NewServiceInstance("1.1.1.1")
 	name := "foo"
-	r := NewRegistry([]*model.Service{
+	r := NewRegistry(
 		model.NewService(name, inst),
-	})
+	)
 	service, _ := r.Get(name)
 	assert.Len(t, service.Instances, 1)
 

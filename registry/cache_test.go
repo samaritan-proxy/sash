@@ -188,7 +188,7 @@ func TestCacheOmitServiceEvents(t *testing.T) {
 		model.NewServiceInstance("127.0.0.1:8888"),
 		model.NewServiceInstance("127.0.0.1:8889"),
 	)
-	r := memory.NewRegistry([]*model.Service{svc1, svc2})
+	r := memory.NewRegistry(svc1, svc2)
 
 	c := newCache(r)
 	err := c.Sync(context.TODO())
@@ -236,7 +236,7 @@ func TestCacheOmitInstanceEvents(t *testing.T) {
 	inst2 := model.NewServiceInstance("127.0.0.1:8889")
 	svcName := "svc1"
 	svc := model.NewService(svcName, inst1, inst2)
-	r := memory.NewRegistry([]*model.Service{svc})
+	r := memory.NewRegistry(svc)
 
 	c := newCache(r)
 	err := c.Sync(context.TODO())
@@ -287,4 +287,35 @@ func TestCacheOmitInstanceEvents(t *testing.T) {
 			Instances:   []*model.ServiceInstance{inst3},
 		},
 	))
+}
+
+func TestCachePeriodicSync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	r := NewMockServiceRegistry(ctrl)
+	// fist is failed, the subsequent are successful.
+	r.EXPECT().List().Return(nil, errors.New("server is busy"))
+	r.EXPECT().List().Return([]string{"foo"}, nil).AnyTimes()
+	r.EXPECT().Get("foo").Return(
+		model.NewService("foo"), nil,
+	).AnyTimes()
+
+	c := newCache(r, SyncFreq(time.Second))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	go func() {
+		c.Run(ctx)
+		close(done)
+	}()
+	time.AfterFunc(time.Second*2, cancel)
+	<-done
+	// assert
+	names, err := c.List()
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"foo"}, names)
+	svc, err := c.Get("foo")
+	assert.NoError(t, err)
+	assert.NotNil(t, svc)
 }

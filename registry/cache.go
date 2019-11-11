@@ -41,6 +41,16 @@ type cacheOptions struct {
 	syncJitter float64
 }
 
+func defaultBackOff() *backoff.ExponentialBackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = defaultBackoffInitialInterval
+	b.RandomizationFactor = defaultBackoffRandomizationFactor
+	b.Multiplier = defaultBackoffMultiplier
+	b.MaxInterval = defaultBackoffMaxInterval
+	b.Reset()
+	return b
+}
+
 func defaultCacheOptions() *cacheOptions {
 	return &cacheOptions{
 		syncFreq:   5 * time.Second,
@@ -147,12 +157,9 @@ func (c *cache) RegisterInstanceEventHandler(handler InstanceEventHandler) {
 // Run runs the cache container until the context is canceled or deadline exceeded.
 func (c *cache) Run(ctx context.Context) {
 	maxSyncInterval := time.Duration(float64(c.options.syncFreq) * (1 + c.options.syncJitter))
-	b := &backoff.ExponentialBackOff{
-		InitialInterval:     defaultBackoffInitialInterval,
-		RandomizationFactor: defaultBackoffRandomizationFactor,
-		Multiplier:          defaultBackoffMultiplier,
-		MaxInterval:         maxSyncInterval,
-	}
+	b := defaultBackOff()
+	b.MaxInterval = maxSyncInterval
+	b.Reset()
 
 	for {
 		startTime := time.Now()
@@ -167,13 +174,13 @@ func (c *cache) Run(ctx context.Context) {
 		var interval time.Duration
 		if err != nil {
 			interval = b.NextBackOff()
-			logger.Warnf("Sync services from the underlying registry failed: %v, retry after %d", err, interval)
+			logger.Warnf("Sync services failed: %v, retry after %s", err, interval)
 		} else {
 			// reset the backoff
 			b.Reset()
 			d := float64(c.options.syncFreq) * (1 + c.options.syncJitter*(rand.Float64()*2-1))
 			interval = time.Duration(d)
-			logger.Debugf("Sync services succeed, cost: %s, will do it again after %d", time.Since(startTime), interval)
+			logger.Debugf("Sync services succeed, cost: %s, do it again after %s", time.Since(startTime), interval)
 		}
 
 		t := time.NewTimer(interval)
@@ -194,13 +201,7 @@ func (c *cache) Sync(ctx context.Context) error {
 	// remove the outdated services.
 	c.deleteOutdatedServices(names)
 
-	eb := &backoff.ExponentialBackOff{
-		InitialInterval:     defaultBackoffInitialInterval,
-		RandomizationFactor: defaultBackoffRandomizationFactor,
-		Multiplier:          defaultBackoffMultiplier,
-		MaxInterval:         defaultBackoffMaxInterval,
-		Clock:               backoff.SystemClock,
-	}
+	eb := defaultBackOff()
 	// the total retry time is under six seconds.
 	b := backoff.WithMaxRetries(eb, uint64(defaultBackoffMaxRetries))
 	// TODO: improve the performace with concurrency.
@@ -232,6 +233,7 @@ func (c *cache) Sync(ctx context.Context) error {
 			}
 		}
 
+		// NOTE: it's also acceptable to skip this error, and sync others.
 		if err != nil {
 			return err
 		}

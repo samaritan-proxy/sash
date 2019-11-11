@@ -29,8 +29,8 @@ type Registry struct {
 
 // NewRegistry creates a memory service registry.
 // NOTE: It is designed for unit tests, all methods aren't goroutine-safe.
-func NewRegistry(services []*model.Service) *Registry {
-	m := make(map[string]*model.Service, len(services))
+func NewRegistry(services ...*model.Service) *Registry {
+	m := make(map[string]*model.Service)
 	for _, service := range services {
 		m[service.Name] = service
 	}
