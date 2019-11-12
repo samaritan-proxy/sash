@@ -62,7 +62,21 @@ func (cfg *ConnConfig) auth() string {
 }
 
 // Conn is a zk connection wrapper.
-type Conn struct {
+type Conn interface {
+	Get(path string) ([]byte, *zk.Stat, error)
+	Children(path string) ([]string, *zk.Stat, error)
+	Exists(path string) (bool, *zk.Stat, error)
+	Close()
+}
+
+//go:generate mockgen -source ./conn.go -destination mock_conn.go -package zk
+
+// CreateConn creates zk connection and connects it
+func CreateConn(cfg *ConnConfig, waitConnected bool) (Conn, error) {
+	return createConn(cfg, waitConnected)
+}
+
+type conn struct {
 	*zk.Conn
 	update       <-chan zk.Event
 	cfg          *ConnConfig
@@ -70,8 +84,7 @@ type Conn struct {
 	watchersLock sync.RWMutex
 }
 
-// CreateConn creates zk connection and connects it
-func CreateConn(cfg *ConnConfig, waitConnected bool) (*Conn, error) {
+func createConn(cfg *ConnConfig, waitConnected bool) (*conn, error) {
 	if cfg.SessionTimeout <= 0 {
 		cfg.SessionTimeout = time.Second
 	}
@@ -80,11 +93,11 @@ func CreateConn(cfg *ConnConfig, waitConnected bool) (*Conn, error) {
 	}
 
 	var err error
-	conn := &Conn{
+	c := &conn{
 		cfg:       cfg,
 		authAdded: atomic.NewBool(false),
 	}
-	conn.Conn, conn.update, err = zk.Connect(cfg.Hosts, cfg.SessionTimeout,
+	c.Conn, c.update, err = zk.Connect(cfg.Hosts, cfg.SessionTimeout,
 		func(c *zk.Conn) {
 			c.SetLogger(logger.Get())
 		},
@@ -96,19 +109,19 @@ func CreateConn(cfg *ConnConfig, waitConnected bool) (*Conn, error) {
 		return nil, err
 	}
 
-	err = conn.addAuth()
+	err = c.addAuth()
 	if err != nil {
 		return nil, err
 	}
 
 	if waitConnected {
-		err = conn.waitConnected()
+		err = c.waitConnected()
 	}
-	return conn, err
+	return c, err
 }
 
 // Authed returns if the zk connection is authorized
-func (c *Conn) Authed() bool {
+func (c *conn) Authed() bool {
 	return c.authAdded.Load()
 }
 
@@ -116,7 +129,7 @@ var addAuth = func(conn *zk.Conn, scheme string, auth []byte) error {
 	return conn.AddAuth(scheme, auth)
 }
 
-func (c *Conn) addAuth() error {
+func (c *conn) addAuth() error {
 	if c.cfg.auth() != "" && !c.Authed() {
 		logger.Debug("Authenticating with: ", c.cfg.auth())
 		err := addAuth(c.Conn, "digest", []byte(c.cfg.auth()))
@@ -128,7 +141,7 @@ func (c *Conn) addAuth() error {
 	return nil
 }
 
-func (c *Conn) waitConnected() error {
+func (c *conn) waitConnected() error {
 	attempt := 0
 
 	for {
@@ -149,7 +162,7 @@ func (c *Conn) waitConnected() error {
 }
 
 // CreateRecursively creates path with given data and its parents if necessary
-func (c *Conn) CreateRecursively(p string, data string) error {
+func (c *conn) CreateRecursively(p string, data string) error {
 	var err error
 
 	if err = c.createParentRecursively(p); err != nil {
@@ -168,7 +181,7 @@ func (c *Conn) CreateRecursively(p string, data string) error {
 }
 
 // createParentRecursively creates given path's parents if necessary.
-func (c *Conn) createParentRecursively(p string) error {
+func (c *conn) createParentRecursively(p string) error {
 	var parent = path.Dir(p)
 	if parent == p {
 		return nil
@@ -190,7 +203,7 @@ func (c *Conn) createParentRecursively(p string) error {
 	return err
 }
 
-func (c *Conn) nodeEqual(p string, data string) (bool, error) {
+func (c *conn) nodeEqual(p string, data string) (bool, error) {
 	existData, _, err := c.Get(p)
 	if err != nil {
 		return false, err
@@ -198,7 +211,7 @@ func (c *Conn) nodeEqual(p string, data string) (bool, error) {
 	return bytes.Equal([]byte(data), existData), nil
 }
 
-func (c *Conn) getACL() []zk.ACL {
+func (c *conn) getACL() []zk.ACL {
 	var acl = zk.WorldACL(zk.PermAll)
 	if c.cfg.auth() != "" {
 		acl = zk.DigestACL(zk.PermAll, c.cfg.User, c.cfg.Pwd)
@@ -207,7 +220,7 @@ func (c *Conn) getACL() []zk.ACL {
 }
 
 // DeleteWithChildren delete path and its children if necessary
-func (c *Conn) DeleteWithChildren(pathcur string) error {
+func (c *conn) DeleteWithChildren(pathcur string) error {
 	deleteFn := func(pathcur string, data []byte) error {
 		return c.Delete(pathcur, int32(-1))
 	}
@@ -215,7 +228,7 @@ func (c *Conn) DeleteWithChildren(pathcur string) error {
 	return err
 }
 
-func (c *Conn) walk(pathcur string, fn func(pathcur string, data []byte) error) error {
+func (c *conn) walk(pathcur string, fn func(pathcur string, data []byte) error) error {
 	pathIsExist, _, err := c.Exists(pathcur)
 	if err != nil {
 		return err
