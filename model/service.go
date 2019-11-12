@@ -45,9 +45,9 @@ const (
 
 // ServiceInstance represents an instance of service.
 type ServiceInstance struct {
-	Addr  string
-	State ServiceInstanceState
-	Meta  map[string]string
+	Addr  string               `json:"addr"`
+	State ServiceInstanceState `json:"state"`
+	Meta  map[string]string    `json:"meta"`
 }
 
 // NewServerInstance creates a plain service instance.
