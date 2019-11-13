@@ -161,9 +161,8 @@ func (c *conn) waitConnected() error {
 
 // CreateRecursively creates path with given data and its parents if necessary
 func (c *conn) CreateRecursively(p string, data string) error {
-	var err error
-
-	if err = c.createParentRecursively(p); err != nil {
+	err := c.createParentRecursively(p)
+	if err != nil {
 		return err
 	}
 
