@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"net"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/mesosphere/go-zookeeper/zk"
@@ -78,10 +77,9 @@ func CreateConn(cfg *ConnConfig, waitConnected bool) (Conn, error) {
 
 type conn struct {
 	*zk.Conn
-	update       <-chan zk.Event
-	cfg          *ConnConfig
-	authAdded    *atomic.Bool
-	watchersLock sync.RWMutex
+	update    <-chan zk.Event
+	cfg       *ConnConfig
+	authAdded *atomic.Bool
 }
 
 func createConn(cfg *ConnConfig, waitConnected bool) (*conn, error) {
