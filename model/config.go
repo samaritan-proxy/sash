@@ -18,21 +18,21 @@ import (
 	"github.com/samaritan-proxy/samaritan/pb/config/service"
 )
 
-// ServiceConfig represents a config of service.
-type ServiceConfig struct {
+// ProxyConfig represents a config of service.
+type ProxyConfig struct {
 	ServiceName string
 	Config      *service.Config
 }
 
-// NewServiceConfig return a new ServiceConfig.
-func NewServiceConfig(name string, config *service.Config) *ServiceConfig {
-	return &ServiceConfig{
+// NewProxyConfig return a new ProxyConfig.
+func NewProxyConfig(name string, config *service.Config) *ProxyConfig {
+	return &ProxyConfig{
 		ServiceName: name,
 		Config:      config,
 	}
 }
 
-// ServiceConfig contain all dependencies of a services.
+// ServiceDependence contain all dependencies of a services.
 type ServiceDependence struct {
 	Service      string
 	Dependencies []string
