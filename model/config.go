@@ -18,23 +18,27 @@ import (
 	"github.com/samaritan-proxy/samaritan/pb/config/service"
 )
 
+// ServiceConfig represents a config of service.
 type ServiceConfig struct {
-	Service string
-	Config  *service.Config
+	ServiceName string
+	Config      *service.Config
 }
 
+// NewServiceConfig return a new ServiceConfig.
 func NewServiceConfig(name string, config *service.Config) *ServiceConfig {
 	return &ServiceConfig{
-		Service: name,
-		Config:  config,
+		ServiceName: name,
+		Config:      config,
 	}
 }
 
+// ServiceConfig contain all dependencies of a services.
 type ServiceDependence struct {
 	Service      string
 	Dependencies []string
 }
 
+// NewServiceDependence return a new ServiceDependence.
 func NewServiceDependence(name string, dependencies []string) *ServiceDependence {
 	return &ServiceDependence{
 		Service:      name,

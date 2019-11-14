@@ -17,22 +17,20 @@ package memory
 import (
 	"bytes"
 	"sync"
-
-	"github.com/samaritan-proxy/sash/config"
 )
 
 // MemStore is a in memory implement of Store.
 type MemStore struct {
 	sync.RWMutex
 	evtCh       chan struct{}
-	configs     map[string]map[string]map[string][]byte // namespace, type, key, value
+	configs     *configs
 	subscribeNS map[string]struct{}
 }
 
 func NewMemStore() *MemStore {
 	return &MemStore{
 		evtCh:       make(chan struct{}, 64),
-		configs:     make(map[string]map[string]map[string][]byte),
+		configs:     newConfigs(),
 		subscribeNS: make(map[string]struct{}),
 	}
 }
@@ -41,46 +39,20 @@ func (s *MemStore) Get(namespace, typ, key string) ([]byte, error) {
 	s.RLock()
 	defer s.RUnlock()
 
-	types, ok := s.configs[namespace]
-	if !ok || types == nil {
-		return nil, config.ErrNamespaceNotExist
-	}
-
-	keys, ok := types[typ]
-	if !ok || keys == nil {
-		return nil, config.ErrTypeNotExist
-	}
-
-	b, ok := keys[key]
-	if !ok {
-		return nil, config.ErrKeyNotExist
-	}
-
-	return b, nil
+	return s.configs.Get(namespace, typ, key)
 }
 
 func (s *MemStore) Set(namespace, typ, key string, value []byte) error {
 	s.Lock()
 	defer s.Unlock()
 
-	types, ok := s.configs[namespace]
-	if !ok || types == nil {
-		types = make(map[string]map[string][]byte)
-		s.configs[namespace] = types
-	}
-
-	keys, ok := types[typ]
-	if !ok || keys == nil {
-		keys = make(map[string][]byte)
-		s.configs[namespace][typ] = keys
-	}
-
 	update := false
-	oldValue, ok := keys[key]
-	if ok {
-		update = !bytes.Equal(oldValue, value)
+	oldValue, err := s.configs.Get(namespace, typ, key)
+	if err == nil && !bytes.Equal(oldValue, value) {
+		update = true
 	}
-	keys[key] = value
+
+	s.configs.Set(namespace, typ, key, value)
 
 	if _, ok := s.subscribeNS[namespace]; ok && update {
 		s.evtCh <- struct{}{}
@@ -92,29 +64,12 @@ func (s *MemStore) Del(namespace, typ, key string) error {
 	s.Lock()
 	defer s.Unlock()
 
-	types, ok := s.configs[namespace]
-	if !ok || types == nil {
-		return config.ErrNamespaceNotExist
+	if err := s.configs.Del(namespace, typ, key); err != nil {
+		return err
 	}
-
-	keys, ok := types[typ]
-	if !ok || keys == nil {
-		return config.ErrTypeNotExist
+	if _, ok := s.subscribeNS[namespace]; ok {
+		s.evtCh <- struct{}{}
 	}
-
-	_, ok = keys[key]
-	if !ok {
-		return config.ErrKeyNotExist
-	}
-
-	delete(keys, key)
-	if len(keys) == 0 {
-		delete(types, typ)
-	}
-	if len(types) == 0 {
-		delete(s.configs, namespace)
-	}
-
 	return nil
 }
 
@@ -122,39 +77,15 @@ func (s *MemStore) Exist(namespace, typ, key string) bool {
 	s.RLock()
 	defer s.RUnlock()
 
-	types, ok := s.configs[namespace]
-	if !ok || types == nil {
-		return false
-	}
-
-	keys, ok := types[typ]
-	if !ok || keys == nil {
-		return false
-	}
-
-	_, ok = keys[key]
-
-	return ok
+	_, err := s.configs.Get(namespace, typ, key)
+	return err == nil
 }
 
 func (s *MemStore) GetKeys(namespace, typ string) ([]string, error) {
 	s.RLock()
 	defer s.RUnlock()
 
-	if _, ok := s.configs[namespace]; !ok {
-		return nil, config.ErrNamespaceNotExist
-	}
-
-	if _, ok := s.configs[namespace][typ]; !ok {
-		return nil, config.ErrTypeNotExist
-	}
-
-	keys := make([]string, 0, len(s.configs[namespace][typ]))
-	for key := range s.configs[namespace][typ] {
-		keys = append(keys, key)
-	}
-
-	return keys, nil
+	return s.configs.Keys(namespace, typ)
 }
 
 func (s *MemStore) Subscribe(namespace string) error {

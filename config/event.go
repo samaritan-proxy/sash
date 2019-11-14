@@ -14,10 +14,6 @@
 
 package config
 
-import (
-	"github.com/samaritan-proxy/sash/model"
-)
-
 // EventType indicates the type of event.
 type EventType uint8
 
@@ -28,21 +24,21 @@ const (
 	EventDelete
 )
 
-// SvcConfigEvent represents a config event.
-type SvcConfigEvent struct {
+// Event represents a config event.
+type Event struct {
 	Type   EventType
-	Config *model.ServiceConfig
+	Config *RawConf
 }
 
-// NewSvcConfigEvent return a new SvcConfigEvent.
-func NewSvcConfigEvent(typ EventType, config *model.ServiceConfig) *SvcConfigEvent {
-	return &SvcConfigEvent{
+// NewEvent return a new Event.
+func NewEvent(typ EventType, config *RawConf) *Event {
+	return &Event{
 		Type:   typ,
 		Config: config,
 	}
 }
 
 type (
-	// EventHandler is used to handle the config event.
-	EventHandler func(event *SvcConfigEvent)
+	// EventHandler is used to handle the event.
+	EventHandler func(event *Event)
 )

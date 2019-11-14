@@ -34,11 +34,11 @@ func fnv32(str string) uint32 {
 
 func TestRawConf_Hashcode(t *testing.T) {
 	cases := []struct {
-		Conf     *rawConf
+		Conf     *RawConf
 		Hashcode uint32
 	}{
 		{nil, 0},
-		{newRawConf("a", "b", "c", nil), fnv32("a|b|c")},
+		{NewRawConf("a", "b", "c", nil), fnv32("a|b|c")},
 	}
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
@@ -49,7 +49,7 @@ func TestRawConf_Hashcode(t *testing.T) {
 
 func TestRawConf_Equal(t *testing.T) {
 	cases := []struct {
-		A, B   *rawConf
+		A, B   *RawConf
 		Expect bool
 	}{
 		{
@@ -58,28 +58,28 @@ func TestRawConf_Equal(t *testing.T) {
 			Expect: true,
 		},
 		{
-			A:      newRawConf("a", "b", "c", []byte("hello")),
-			B:      newRawConf("a", "b", "c", []byte("hello")),
+			A:      NewRawConf("a", "b", "c", []byte("hello")),
+			B:      NewRawConf("a", "b", "c", []byte("hello")),
 			Expect: true,
 		},
 		{
-			A:      newRawConf("a", "b", "c", []byte("hello")),
-			B:      newRawConf("foo", "b", "c", []byte("hello")),
+			A:      NewRawConf("a", "b", "c", []byte("hello")),
+			B:      NewRawConf("foo", "b", "c", []byte("hello")),
 			Expect: false,
 		},
 		{
-			A:      newRawConf("a", "b", "c", []byte("hello")),
-			B:      newRawConf("a", "foo", "c", []byte("hello")),
+			A:      NewRawConf("a", "b", "c", []byte("hello")),
+			B:      NewRawConf("a", "foo", "c", []byte("hello")),
 			Expect: false,
 		},
 		{
-			A:      newRawConf("a", "b", "c", []byte("hello")),
-			B:      newRawConf("a", "b", "foo", []byte("hello")),
+			A:      NewRawConf("a", "b", "c", []byte("hello")),
+			B:      NewRawConf("a", "b", "foo", []byte("hello")),
 			Expect: false,
 		},
 		{
-			A:      newRawConf("a", "b", "c", []byte("hello")),
-			B:      newRawConf("a", "b", "c", []byte("hi")),
+			A:      NewRawConf("a", "b", "c", []byte("hello")),
+			B:      NewRawConf("a", "b", "c", []byte("hi")),
 			Expect: false,
 		},
 	}

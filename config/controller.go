@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/samaritan-proxy/sash/logger"
-	"github.com/samaritan-proxy/sash/model"
 )
 
 const (
@@ -31,23 +30,35 @@ const (
 	svcDependenceSep = byte(',')
 )
 
-var interestedNSAndType = map[string][]string{
+var InterestedNSAndType = map[string][]string{
 	NamespaceService: {TypeServiceProxyConfig, TypeServiceDependence},
+}
+
+type config struct {
+	Namespaces map[string]*namespace
+}
+
+type namespace struct {
+	Name  string
+	Types map[string]*typ
+}
+
+type typ struct {
+	Name    string
+	Configs map[string]*RawConf
 }
 
 // Controller is used to store configuration information.
 type Controller struct {
+	sync.Mutex
 	store    Store
 	updateCh chan struct{}
+
+	index    atomic.Value // *config
 	cache    atomic.Value // map[uint32]*rawConf
 	interval time.Duration
 
-	// for test
-	cfgUpdateHdl func(namespace, typ, key string, value []byte)
-	cfgAddHdl    func(namespace, typ, key string, value []byte)
-	cfgDelHdl    func(namespace, typ, key string)
-
-	svcCfgEvtHdls []EventHandler
+	evtHdls []EventHandler
 
 	stop chan struct{}
 	wg   sync.WaitGroup
@@ -62,18 +73,50 @@ func NewController(store Store, interval time.Duration) *Controller {
 		stop:     make(chan struct{}),
 		cache:    atomic.Value{},
 	}
-	c.cfgUpdateHdl = c.handleCfgUpdate
-	c.cfgAddHdl = c.handleCfgAdd
-	c.cfgDelHdl = c.handleCfgDel
 	return c
 }
 
-func (c *Controller) loadCache() map[uint32]*rawConf {
-	return c.cache.Load().(map[uint32]*rawConf)
+func (c *Controller) updateCacheAndIndex(m map[uint32]*RawConf) {
+	c.Lock()
+	defer c.Unlock()
+	c.storeCache(m)
+	c.storeIndex(m)
 }
 
-func (c *Controller) storeCache(m map[uint32]*rawConf) {
+func (c *Controller) loadCache() map[uint32]*RawConf {
+	return c.cache.Load().(map[uint32]*RawConf)
+}
+
+func (c *Controller) storeCache(m map[uint32]*RawConf) {
 	c.cache.Store(m)
+}
+
+func (c *Controller) loadIndex() *config {
+	return c.index.Load().(*config)
+}
+
+func (c *Controller) storeIndex(m map[uint32]*RawConf) {
+	index := &config{
+		Namespaces: make(map[string]*namespace),
+	}
+	for _, config := range m {
+		if _, ok := index.Namespaces[config.Namespace]; !ok {
+			index.Namespaces[config.Namespace] = &namespace{
+				Name:  config.Namespace,
+				Types: make(map[string]*typ),
+			}
+		}
+		ns := index.Namespaces[config.Namespace]
+		if _, ok := ns.Types[config.Type]; !ok {
+			ns.Types[config.Type] = &typ{
+				Name:    config.Type,
+				Configs: make(map[string]*RawConf),
+			}
+		}
+		typ := ns.Types[config.Type]
+		typ.Configs[config.Key] = config
+	}
+	c.index.Store(index)
 }
 
 func (c *Controller) trySubscribe(namespace ...string) error {
@@ -89,9 +132,9 @@ func (c *Controller) trySubscribe(namespace ...string) error {
 	return nil
 }
 
-func (c *Controller) fetchAll() (map[uint32]*rawConf, error) {
-	res := make(map[uint32]*rawConf)
-	for ns, types := range interestedNSAndType {
+func (c *Controller) fetchAll() (map[uint32]*RawConf, error) {
+	res := make(map[uint32]*RawConf)
+	for ns, types := range InterestedNSAndType {
 		for _, typ := range types {
 			keys, err := c.store.GetKeys(ns, typ)
 			switch err {
@@ -106,7 +149,7 @@ func (c *Controller) fetchAll() (map[uint32]*rawConf, error) {
 				if err != nil {
 					return nil, err
 				}
-				node := newRawConf(ns, typ, key, value)
+				node := NewRawConf(ns, typ, key, value)
 				res[node.Hashcode()] = node
 			}
 		}
@@ -124,8 +167,8 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return err
 	}
-	c.storeCache(conf)
-	for ns := range interestedNSAndType {
+	c.updateCacheAndIndex(conf)
+	for ns := range InterestedNSAndType {
 		if err := c.trySubscribe(ns); err != nil {
 			return err
 		}
@@ -173,44 +216,7 @@ func (c *Controller) trigger() {
 	}
 }
 
-func (c *Controller) handleCfgUpdate(namespace, typ, key string, value []byte) {
-	if namespace == NamespaceService && typ == TypeServiceProxyConfig {
-		cfg, err := unmarshalSvcConfig(value)
-		if err != nil {
-			logger.Warnf("failed to unmarshal svc config, err: %v", err)
-			return
-		}
-		evt := NewSvcConfigEvent(EventUpdate, model.NewServiceConfig(key, cfg))
-		for _, hdl := range c.svcCfgEvtHdls {
-			hdl(evt)
-		}
-	}
-}
-
-func (c *Controller) handleCfgAdd(namespace, typ, key string, value []byte) {
-	if namespace == NamespaceService && typ == TypeServiceProxyConfig {
-		cfg, err := unmarshalSvcConfig(value)
-		if err != nil {
-			logger.Warnf("failed to unmarshal svc config, err: %v", err)
-			return
-		}
-		evt := NewSvcConfigEvent(EventAdd, model.NewServiceConfig(key, cfg))
-		for _, hdl := range c.svcCfgEvtHdls {
-			hdl(evt)
-		}
-	}
-}
-
-func (c *Controller) handleCfgDel(namespace, typ, key string) {
-	if namespace == NamespaceService && typ == TypeServiceProxyConfig {
-		evt := NewSvcConfigEvent(EventDelete, model.NewServiceConfig(key, nil))
-		for _, hdl := range c.svcCfgEvtHdls {
-			hdl(evt)
-		}
-	}
-}
-
-func (c *Controller) diff(newConf map[uint32]*rawConf) {
+func (c *Controller) diff(newConf map[uint32]*RawConf) {
 	allKeys := make(map[uint32]struct{})
 	for k := range c.loadCache() {
 		allKeys[k] = struct{}{}
@@ -219,18 +225,27 @@ func (c *Controller) diff(newConf map[uint32]*rawConf) {
 		allKeys[k] = struct{}{}
 	}
 	for k := range allKeys {
-		newConf, newConfExist := newConf[k]
-		oldConf, oldConfExist := c.loadCache()[k]
+		var (
+			newConf, newConfExist = newConf[k]
+			oldConf, oldConfExist = c.loadCache()[k]
+
+			evt *Event
+		)
+
 		switch {
 		case newConfExist && oldConfExist:
 			if oldConf.Equal(newConf) {
 				continue
 			}
-			c.cfgUpdateHdl(newConf.Namespace, newConf.Type, newConf.Key, newConf.Value)
+			evt = NewEvent(EventUpdate, newConf)
 		case newConfExist && !oldConfExist: //Add
-			c.cfgAddHdl(newConf.Namespace, newConf.Type, newConf.Key, newConf.Value)
+			evt = NewEvent(EventAdd, newConf)
 		case !newConfExist && oldConfExist: // Remove
-			c.cfgDelHdl(oldConf.Namespace, oldConf.Type, oldConf.Key)
+			evt = NewEvent(EventDelete, oldConf)
+		}
+
+		for _, hdl := range c.evtHdls {
+			hdl(evt)
 		}
 	}
 }
@@ -242,86 +257,74 @@ func (c *Controller) loop() {
 		case <-c.stop:
 			return
 		case <-c.updateCh:
-			newConf, err := c.fetchAll()
-			if err != nil {
-				logger.Warnf("failed to fetch config from store, err: %v", err)
-				continue
-			}
-			c.diff(newConf)
-			c.storeCache(newConf)
+			c.doUpdate()
 		}
 	}
+}
+
+func (c *Controller) doUpdate() {
+	newConf, err := c.fetchAll()
+	if err != nil {
+		logger.Warnf("failed to fetch config from store, err: %v", err)
+		return
+	}
+	c.diff(newConf)
+	c.updateCacheAndIndex(newConf)
 }
 
 // RegisterEventHandler registers a handler to handle config event.
 // It is not goroutine-safe, should call it before execute Run.
 func (c *Controller) RegisterEventHandler(handler EventHandler) {
-	c.svcCfgEvtHdls = append(c.svcCfgEvtHdls, handler)
+	c.evtHdls = append(c.evtHdls, handler)
 }
 
 func (c *Controller) get(namespace, typ, key string) ([]byte, error) {
-	// TODO: build and use index
-	hashcode := newRawConf(namespace, typ, key, nil).Hashcode()
-	node, ok := c.loadCache()[hashcode]
+	index := c.loadIndex()
+	ns, ok := index.Namespaces[namespace]
+	if !ok {
+		return nil, ErrNamespaceNotExist
+	}
+	t, ok := ns.Types[typ]
+	if !ok {
+		return nil, ErrTypeNotExist
+	}
+	v, ok := t.Configs[key]
 	if !ok {
 		return nil, ErrKeyNotExist
 	}
-	return node.Value, nil
+	return v.Value, nil
 }
 
-func (c *Controller) set(namespace, typ, key string, value []byte) error {
+func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
+	return c.get(namespace, typ, key)
+}
+
+func (c *Controller) Set(namespace, typ, key string, value []byte) error {
 	return c.store.Set(namespace, typ, key, value)
 }
 
-func (c *Controller) del(namespace, typ, key string) error {
+func (c *Controller) Del(namespace, typ, key string) error {
 	return c.store.Del(namespace, typ, key)
 }
 
-func (c *Controller) exist(namespace, typ, key string) bool {
-	// TODO: build and use index
-	hashcode := newRawConf(namespace, typ, key, nil).Hashcode()
-	_, ok := c.loadCache()[hashcode]
-	return ok
+func (c *Controller) Exist(namespace, typ, key string) bool {
+	_, err := c.get(namespace, typ, key)
+	return err == nil
 }
 
-// GetSvcDependence return the service config of the input service.
-func (c *Controller) GetSvcConfig(service string) (*model.ServiceConfig, error) {
-	b, err := c.get(NamespaceService, TypeServiceProxyConfig, service)
-	switch err {
-	case nil:
-	case ErrNamespaceNotExist,
-		ErrTypeNotExist,
-		ErrKeyNotExist:
-		// TODO: return default config
-	default:
-		return nil, err
+func (c *Controller) Keys(namespace, typ string) ([]string, error) {
+	index := c.loadIndex()
+	ns, ok := index.Namespaces[namespace]
+	if !ok {
+		return nil, ErrNamespaceNotExist
 	}
-	cfg, err := unmarshalSvcConfig(b)
-	if err != nil {
-		logger.Warnf("failed to get svc config, err: %v", err)
-		// TODO: return default config
+	t, ok := ns.Types[typ]
+	if !ok {
+		return nil, ErrTypeNotExist
 	}
-
-	return model.NewServiceConfig(service, cfg), nil
-}
-
-// GetSvcDependence return all dependencies of input service.
-func (c *Controller) GetSvcDependence(service string) (*model.ServiceDependence, error) {
-	b, err := c.get(NamespaceService, TypeServiceDependence, service)
-	switch err {
-	case nil:
-	case ErrNamespaceNotExist,
-		ErrTypeNotExist,
-		ErrKeyNotExist:
-		return model.NewServiceDependence(service, nil), nil
-	default:
-		return nil, err
+	keys := make([]string, 0, len(t.Configs))
+	for k := range t.Configs {
+		keys = append(keys, k)
 	}
-
-	deps, err := unmarshalSvcDependence(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return model.NewServiceDependence(service, deps), nil
+	return keys, nil
 }

@@ -20,15 +20,15 @@ import (
 	"hash/fnv"
 )
 
-type rawConf struct {
+type RawConf struct {
 	Namespace string
 	Type      string
 	Key       string
 	Value     []byte
 }
 
-func newRawConf(namespace, typ, key string, value []byte) *rawConf {
-	return &rawConf{
+func NewRawConf(namespace, typ, key string, value []byte) *RawConf {
+	return &RawConf{
 		Namespace: namespace,
 		Type:      typ,
 		Key:       key,
@@ -36,31 +36,31 @@ func newRawConf(namespace, typ, key string, value []byte) *rawConf {
 	}
 }
 
-func (n *rawConf) Hashcode() uint32 {
-	if n == nil {
+func (c *RawConf) Hashcode() uint32 {
+	if c == nil {
 		return 0
 	}
 
 	hash := fnv.New32()
-	_, err := fmt.Fprintf(hash, "%s|%s|%s", n.Namespace, n.Type, n.Key)
+	_, err := fmt.Fprintf(hash, "%s|%s|%s", c.Namespace, c.Type, c.Key)
 	if err != nil {
 		return 0
 	}
 	return hash.Sum32()
 }
 
-func (n *rawConf) Equal(that *rawConf) bool {
+func (c *RawConf) Equal(that *RawConf) bool {
 	if that == nil {
-		return n == nil
+		return c == nil
 	}
-	if that.Namespace != n.Namespace {
+	if that.Namespace != c.Namespace {
 		return false
 	}
-	if that.Type != n.Type {
+	if that.Type != c.Type {
 		return false
 	}
-	if that.Key != n.Key {
+	if that.Key != c.Key {
 		return false
 	}
-	return bytes.Equal(that.Value, n.Value)
+	return bytes.Equal(that.Value, c.Value)
 }

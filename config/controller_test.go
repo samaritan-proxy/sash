@@ -15,12 +15,11 @@
 package config
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/samaritan-proxy/samaritan/pb/common"
-	"github.com/samaritan-proxy/samaritan/pb/config/service"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +37,7 @@ func assertNotTimeout(t *testing.T, fn func(), timeout time.Duration) {
 	}
 }
 
-func TestController_fetchAll(t *testing.T) {
+func TestController_FetchAll(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -57,42 +56,67 @@ func TestController_fetchAll(t *testing.T) {
 	c := NewController(s, time.Second)
 	cfgs, err := c.fetchAll()
 	assert.NoError(t, err)
-	cfg := newRawConf(NamespaceService, TypeServiceDependence, "key", []byte("value"))
-	assert.Equal(t, map[uint32]*rawConf{cfg.Hashcode(): cfg}, cfgs)
+	cfg := NewRawConf(NamespaceService, TypeServiceDependence, "key", []byte("value"))
+	assert.Equal(t, map[uint32]*RawConf{cfg.Hashcode(): cfg}, cfgs)
 }
 
-func TestController_diff(t *testing.T) {
+func TestController_FetchAllWithError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	t.Run("GetKeys", func(t *testing.T) {
+		s := NewMockStore(ctrl)
+		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return(nil, errors.New("err"))
+		c := NewController(s, time.Second)
+		_, err := c.fetchAll()
+		assert.Error(t, err)
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		s := NewMockStore(ctrl)
+		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return([]string{"key"}, nil)
+		s.EXPECT().Get(NamespaceService, TypeServiceProxyConfig, "key").Return(nil, errors.New("err"))
+		c := NewController(s, time.Second)
+		_, err := c.fetchAll()
+		assert.Error(t, err)
+	})
+
+}
+
+func TestController_Diff(t *testing.T) {
 	c := NewController(nil, time.Second)
-	cfg1 := newRawConf("ns", "type", "k1", []byte("hello"))
-	cfg2 := newRawConf("ns", "type", "k2", []byte("hello"))
-	c.storeCache(map[uint32]*rawConf{
+	cfg := NewRawConf("ns", "type", "k", []byte("value"))
+	cfg1 := NewRawConf("ns", "type", "k1", []byte("hello"))
+	cfg2 := NewRawConf("ns", "type", "k2", []byte("hello"))
+	c.storeCache(map[uint32]*RawConf{
+		cfg.Hashcode():  cfg,
 		cfg1.Hashcode(): cfg1,
 		cfg2.Hashcode(): cfg2,
 	})
-	newCfg1 := newRawConf("ns", "type", "k1", []byte("hi"))
-	newCfg3 := newRawConf("ns", "type", "k3", []byte("hello"))
+	newCfg1 := NewRawConf("ns", "type", "k1", []byte("hi"))
+	newCfg3 := NewRawConf("ns", "type", "k3", []byte("hello"))
 
-	var (
-		add, update, del bool
-	)
-	c.cfgAddHdl = func(namespace, typ, key string, value []byte) {
-		add = true
-	}
-	c.cfgUpdateHdl = func(namespace, typ, key string, value []byte) {
-		update = true
-	}
-	c.cfgDelHdl = func(namespace, typ, key string) {
-		del = true
-	}
+	var add, update, del int
+	c.RegisterEventHandler(func(event *Event) {
+		switch event.Type {
+		case EventAdd:
+			add += 1
+		case EventUpdate:
+			update += 1
+		case EventDelete:
+			del += 1
+		}
+	})
 
-	c.diff(map[uint32]*rawConf{
+	c.diff(map[uint32]*RawConf{
+		cfg.Hashcode():     cfg,
 		newCfg1.Hashcode(): newCfg1,
 		newCfg3.Hashcode(): newCfg3,
 	})
 
-	assert.True(t, add)
-	assert.True(t, update)
-	assert.True(t, del)
+	assert.Equal(t, 1, add)
+	assert.Equal(t, 1, update)
+	assert.Equal(t, 1, del)
 }
 
 func TestController_TrySubscribe(t *testing.T) {
@@ -104,9 +128,12 @@ func TestController_TrySubscribe(t *testing.T) {
 	assert.NoError(t, c.trySubscribe())
 
 	ss := NewMockSubscribableStore(ctrl)
-	ss.EXPECT().Subscribe(gomock.Any()).Return(nil).Times(1)
+	ss.EXPECT().Subscribe("namespace").Return(nil).Times(1)
 	c = NewController(ss, time.Second)
 	assert.NoError(t, c.trySubscribe("namespace"))
+
+	ss.EXPECT().Subscribe("bad_path").Return(errors.New("test")).Times(1)
+	assert.Error(t, c.trySubscribe("bad_path", "foo"))
 }
 
 func TestController_GetAndExist(t *testing.T) {
@@ -138,11 +165,11 @@ func TestController_GetAndExist(t *testing.T) {
 			<-done
 		}, time.Second)
 	}()
-	b, err := c.get(NamespaceService, TypeServiceDependence, "key")
+	b, err := c.Get(NamespaceService, TypeServiceDependence, "key")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("value"), b)
 
-	assert.True(t, c.exist(NamespaceService, TypeServiceDependence, "key"))
+	assert.True(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
 }
 
 func TestController_Set(t *testing.T) {
@@ -152,7 +179,7 @@ func TestController_Set(t *testing.T) {
 	s := NewMockStore(ctrl)
 	s.EXPECT().Set("namespace", "type", "key", []byte("value")).Return(nil)
 	c := NewController(s, time.Second)
-	assert.NoError(t, c.set("namespace", "type", "key", []byte("value")))
+	assert.NoError(t, c.Set("namespace", "type", "key", []byte("value")))
 }
 
 func TestController_Del(t *testing.T) {
@@ -162,7 +189,7 @@ func TestController_Del(t *testing.T) {
 	s := NewMockStore(ctrl)
 	s.EXPECT().Del("namespace", "type", "key").Return(nil)
 	c := NewController(s, time.Second)
-	assert.NoError(t, c.del("namespace", "type", "key"))
+	assert.NoError(t, c.Del("namespace", "type", "key"))
 }
 
 func TestController_TriggerUpdate(t *testing.T) {
@@ -178,36 +205,9 @@ func TestController_TriggerUpdate(t *testing.T) {
 
 func TestController_RegisterEventHandler(t *testing.T) {
 	c := NewController(nil, time.Second)
-	assert.Empty(t, c.svcCfgEvtHdls)
-	c.RegisterEventHandler(func(event *SvcConfigEvent) {})
-	assert.Len(t, c.svcCfgEvtHdls, 1)
-}
-
-func TestController_HandleCfgUpdate(t *testing.T) {
-	c := NewController(nil, time.Second)
-	c.RegisterEventHandler(func(event *SvcConfigEvent) {
-		assert.Equal(t, EventUpdate, event.Type)
-		assert.Equal(t, "service", event.Config.Service)
-	})
-	c.handleCfgUpdate(NamespaceService, TypeServiceProxyConfig, "service", nil)
-}
-
-func TestController_HandleCfgAdd(t *testing.T) {
-	c := NewController(nil, time.Second)
-	c.RegisterEventHandler(func(event *SvcConfigEvent) {
-		assert.Equal(t, EventAdd, event.Type)
-		assert.Equal(t, "service", event.Config.Service)
-	})
-	c.handleCfgAdd(NamespaceService, TypeServiceProxyConfig, "service", nil)
-}
-
-func TestController_HandleCfgDel(t *testing.T) {
-	c := NewController(nil, time.Second)
-	c.RegisterEventHandler(func(event *SvcConfigEvent) {
-		assert.Equal(t, EventDelete, event.Type)
-		assert.Equal(t, "service", event.Config.Service)
-	})
-	c.handleCfgDel(NamespaceService, TypeServiceProxyConfig, "service")
+	assert.Empty(t, c.evtHdls)
+	c.RegisterEventHandler(func(event *Event) {})
+	assert.Len(t, c.evtHdls, 1)
 }
 
 func TestController_Trigger(t *testing.T) {
@@ -251,68 +251,28 @@ func TestController_Trigger(t *testing.T) {
 	})
 }
 
-func TestController_GetSvcConfig(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func TestController_Keys(t *testing.T) {
+	c := NewController(nil, time.Second)
+	cfg := NewRawConf("ns", "type", "k", []byte("value"))
+	cfg1 := NewRawConf("ns", "type", "k1", []byte("hello"))
+	c.storeIndex(map[uint32]*RawConf{
+		cfg.Hashcode():  cfg,
+		cfg1.Hashcode(): cfg1,
+	})
 
-	s := NewMockStore(ctrl)
-	s.EXPECT().Start().Return(nil)
-	s.EXPECT().Stop()
-	s.EXPECT().GetKeys(NamespaceService, TypeServiceProxyConfig).Return([]string{"svc"}, nil)
-	s.EXPECT().GetKeys(
-		gomock.Not(gomock.Eq(NamespaceService)),
-		gomock.Any(),
-	).Return(nil, ErrNamespaceNotExist).AnyTimes()
-	s.EXPECT().GetKeys(
-		NamespaceService,
-		gomock.Not(gomock.Eq(TypeServiceProxyConfig)),
-	).Return(nil, ErrTypeNotExist).AnyTimes()
-	cfg := &service.Config{
-		Listener: &service.Listener{
-			Address: &common.Address{
-				Ip:   "0.0.0.0",
-				Port: 54321,
-			},
-		},
-	}
-	b, err := cfg.Marshal()
-	assert.NoError(t, err)
-	s.EXPECT().Get(NamespaceService, TypeServiceProxyConfig, "svc").Return(b, nil)
+	t.Run("bad namespace", func(t *testing.T) {
+		_, err := c.Keys("foo", "type")
+		assert.Equal(t, ErrNamespaceNotExist, err)
+	})
 
-	c := NewController(s, time.Second)
-	assert.NoError(t, c.Start())
-	defer assertNotTimeout(t, c.Stop, time.Second)
+	t.Run("bad type", func(t *testing.T) {
+		_, err := c.Keys("ns", "foo")
+		assert.Equal(t, ErrTypeNotExist, err)
+	})
 
-	svcCfg, err := c.GetSvcConfig("svc")
-	assert.NoError(t, err)
-	assert.Equal(t, "svc", svcCfg.Service)
-	assert.True(t, svcCfg.Config.Equal(cfg))
-}
-
-func TestController_GetSvcDependence(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	s := NewMockStore(ctrl)
-	s.EXPECT().Start().Return(nil)
-	s.EXPECT().Stop()
-	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependence).Return([]string{"svc"}, nil)
-	s.EXPECT().GetKeys(
-		gomock.Not(gomock.Eq(NamespaceService)),
-		gomock.Any(),
-	).Return(nil, ErrNamespaceNotExist).AnyTimes()
-	s.EXPECT().GetKeys(
-		NamespaceService,
-		gomock.Not(gomock.Eq(TypeServiceDependence)),
-	).Return(nil, ErrTypeNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "svc").Return([]byte("svc1,svc2,svc3"), nil)
-
-	c := NewController(s, time.Second)
-	assert.NoError(t, c.Start())
-	defer assertNotTimeout(t, c.Stop, time.Second)
-
-	deps, err := c.GetSvcDependence("svc")
-	assert.NoError(t, err)
-	assert.Equal(t, "svc", deps.Service)
-	assert.Equal(t, []string{"svc1", "svc2", "svc3"}, deps.Dependencies)
+	t.Run("correct", func(t *testing.T) {
+		keys, err := c.Keys("ns", "type")
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, []string{"k", "k1"}, keys)
+	})
 }

@@ -14,8 +14,7 @@
 
 package config
 
-// TODO: use $REPO_URI
-//go:generate mockgen -package $GOPACKAGE -destination store_mock_test.go github.com/samaritan-proxy/sash/$GOPACKAGE Store,SubscribableStore
+//go:generate mockgen -package $GOPACKAGE -destination store_mock_test.go -source $GOFILE
 
 import (
 	"errors"
