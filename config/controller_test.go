@@ -172,6 +172,26 @@ func TestController_GetAndExist(t *testing.T) {
 	assert.True(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
 }
 
+func TestController_GetWithError(t *testing.T) {
+	c := NewController(nil, time.Second)
+	cfg := NewRawConf("ns", "type", "key", []byte("value"))
+	c.storeIndex(map[uint32]*RawConf{
+		cfg.Hashcode(): cfg,
+	})
+	t.Run("bad ns", func(t *testing.T) {
+		_, err := c.Get("foo", "type", "key")
+		assert.Equal(t, ErrNamespaceNotExist, err)
+	})
+	t.Run("bad type", func(t *testing.T) {
+		_, err := c.Get("ns", "foo", "key")
+		assert.Equal(t, ErrTypeNotExist, err)
+	})
+	t.Run("bad key", func(t *testing.T) {
+		_, err := c.Get("ns", "type", "foo")
+		assert.Equal(t, ErrKeyNotExist, err)
+	})
+}
+
 func TestController_Set(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

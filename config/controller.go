@@ -26,8 +26,6 @@ const (
 	NamespaceService       = "service"
 	TypeServiceProxyConfig = "proxy-config"
 	TypeServiceDependence  = "dependence"
-
-	svcDependenceSep = byte(',')
 )
 
 var InterestedNSAndType = map[string][]string{
