@@ -15,7 +15,7 @@
 package model
 
 import (
-	"github.com/samaritan-proxy/samaritan/pb/config/service"
+	"github.com/samaritan-proxy/samaritan-api/go/config/service"
 )
 
 // ProxyConfig represents a config of service.
