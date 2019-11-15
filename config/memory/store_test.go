@@ -25,6 +25,8 @@ import (
 
 func TestGetAndSet(t *testing.T) {
 	s := NewMemStore()
+	assert.NoError(t, s.Start())
+	defer s.Stop()
 
 	assert.NoError(t, s.Set("a", "b", "c", []byte("hello")))
 
@@ -53,6 +55,9 @@ func TestGetAndSet(t *testing.T) {
 
 func TestDel(t *testing.T) {
 	s := NewMemStore()
+	assert.NoError(t, s.Start())
+	defer s.Stop()
+
 	assert.Error(t, s.Del("a", "b", "c"))
 	assert.NoError(t, s.Set("a", "b", "c", []byte("hello")))
 	assert.NoError(t, s.Del("a", "b", "c"))
@@ -61,6 +66,9 @@ func TestDel(t *testing.T) {
 
 func TestGetKeys(t *testing.T) {
 	s := NewMemStore()
+	assert.NoError(t, s.Start())
+	defer s.Stop()
+
 	keys := []string{"a", "b", "c"}
 	sort.Strings(keys)
 	for _, key := range keys {
@@ -78,6 +86,9 @@ func TestGetKeys(t *testing.T) {
 
 func TestSubscribeAndUnSubscribe(t *testing.T) {
 	s := NewMemStore()
+	assert.NoError(t, s.Start())
+	defer s.Stop()
+
 	assert.NoError(t, s.Set("ns1", "b", "c", []byte("hello")))
 	assert.NoError(t, s.Set("ns2", "b", "c", []byte("hello")))
 	assert.NoError(t, s.Subscribe("ns1"))

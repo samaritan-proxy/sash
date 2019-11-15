@@ -17,20 +17,23 @@ package memory
 import (
 	"bytes"
 	"sync"
+
+	"github.com/samaritan-proxy/sash/config"
 )
 
 // MemStore is a in memory implement of Store.
 type MemStore struct {
 	sync.RWMutex
 	evtCh       chan struct{}
-	configs     *configs
+	configs     *config.Cache
 	subscribeNS map[string]struct{}
 }
 
+// NewMemStore return a new MemStore.
 func NewMemStore() *MemStore {
 	return &MemStore{
 		evtCh:       make(chan struct{}, 64),
-		configs:     newConfigs(),
+		configs:     config.NewCache(),
 		subscribeNS: make(map[string]struct{}),
 	}
 }

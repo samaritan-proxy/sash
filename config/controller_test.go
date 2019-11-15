@@ -54,10 +54,11 @@ func TestController_FetchAll(t *testing.T) {
 	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
 
 	c := NewController(s, time.Second)
-	cfgs, err := c.fetchAll()
+	all, err := c.fetchAll()
 	assert.NoError(t, err)
-	cfg := NewRawConf(NamespaceService, TypeServiceDependence, "key", []byte("value"))
-	assert.Equal(t, map[uint32]*RawConf{cfg.Hashcode(): cfg}, cfgs)
+	v, err := all.Get(NamespaceService, TypeServiceDependence, "key")
+	assert.NoError(t, err)
+	assert.Equal(t, []byte("value"), v)
 }
 
 func TestController_FetchAllWithError(t *testing.T) {
@@ -85,16 +86,11 @@ func TestController_FetchAllWithError(t *testing.T) {
 
 func TestController_Diff(t *testing.T) {
 	c := NewController(nil, time.Second)
-	cfg := NewRawConf("ns", "type", "k", []byte("value"))
-	cfg1 := NewRawConf("ns", "type", "k1", []byte("hello"))
-	cfg2 := NewRawConf("ns", "type", "k2", []byte("hello"))
-	c.storeCache(map[uint32]*RawConf{
-		cfg.Hashcode():  cfg,
-		cfg1.Hashcode(): cfg1,
-		cfg2.Hashcode(): cfg2,
-	})
-	newCfg1 := NewRawConf("ns", "type", "k1", []byte("hi"))
-	newCfg3 := NewRawConf("ns", "type", "k3", []byte("hello"))
+	cache := NewCache()
+	cache.Set("ns", "type", "k", []byte("value"))
+	cache.Set("ns", "type", "k1", []byte("hello"))
+	cache.Set("ns", "type", "k2", []byte("hello"))
+	c.storeCache(cache)
 
 	var add, update, del int
 	c.RegisterEventHandler(func(event *Event) {
@@ -108,11 +104,11 @@ func TestController_Diff(t *testing.T) {
 		}
 	})
 
-	c.diff(map[uint32]*RawConf{
-		cfg.Hashcode():     cfg,
-		newCfg1.Hashcode(): newCfg1,
-		newCfg3.Hashcode(): newCfg3,
-	})
+	cache = NewCache()
+	cache.Set("ns", "type", "k", []byte("value"))
+	cache.Set("ns", "type", "k1", []byte("hi"))
+	cache.Set("ns", "type", "k3", []byte("hello"))
+	c.diff(cache)
 
 	assert.Equal(t, 1, add)
 	assert.Equal(t, 1, update)
@@ -128,9 +124,9 @@ func TestController_TrySubscribe(t *testing.T) {
 	assert.NoError(t, c.trySubscribe())
 
 	ss := NewMockSubscribableStore(ctrl)
-	ss.EXPECT().Subscribe("namespace").Return(nil).Times(1)
+	ss.EXPECT().Subscribe("Namespace").Return(nil).Times(1)
 	c = NewController(ss, time.Second)
-	assert.NoError(t, c.trySubscribe("namespace"))
+	assert.NoError(t, c.trySubscribe("Namespace"))
 
 	ss.EXPECT().Subscribe("bad_path").Return(errors.New("test")).Times(1)
 	assert.Error(t, c.trySubscribe("bad_path", "foo"))
@@ -174,10 +170,9 @@ func TestController_GetAndExist(t *testing.T) {
 
 func TestController_GetWithError(t *testing.T) {
 	c := NewController(nil, time.Second)
-	cfg := NewRawConf("ns", "type", "key", []byte("value"))
-	c.storeIndex(map[uint32]*RawConf{
-		cfg.Hashcode(): cfg,
-	})
+	cache := NewCache()
+	cache.Set("ns", "type", "key", []byte("value"))
+	c.storeCache(cache)
 	t.Run("bad ns", func(t *testing.T) {
 		_, err := c.Get("foo", "type", "key")
 		assert.Equal(t, ErrNamespaceNotExist, err)
@@ -197,9 +192,9 @@ func TestController_Set(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().Set("namespace", "type", "key", []byte("value")).Return(nil)
+	s.EXPECT().Set("Namespace", "type", "key", []byte("value")).Return(nil)
 	c := NewController(s, time.Second)
-	assert.NoError(t, c.Set("namespace", "type", "key", []byte("value")))
+	assert.NoError(t, c.Set("Namespace", "type", "key", []byte("value")))
 }
 
 func TestController_Del(t *testing.T) {
@@ -207,9 +202,9 @@ func TestController_Del(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().Del("namespace", "type", "key").Return(nil)
+	s.EXPECT().Del("Namespace", "type", "key").Return(nil)
 	c := NewController(s, time.Second)
-	assert.NoError(t, c.Del("namespace", "type", "key"))
+	assert.NoError(t, c.Del("Namespace", "type", "key"))
 }
 
 func TestController_TriggerUpdate(t *testing.T) {
@@ -273,14 +268,12 @@ func TestController_Trigger(t *testing.T) {
 
 func TestController_Keys(t *testing.T) {
 	c := NewController(nil, time.Second)
-	cfg := NewRawConf("ns", "type", "k", []byte("value"))
-	cfg1 := NewRawConf("ns", "type", "k1", []byte("hello"))
-	c.storeIndex(map[uint32]*RawConf{
-		cfg.Hashcode():  cfg,
-		cfg1.Hashcode(): cfg1,
-	})
+	cache := NewCache()
+	cache.Set("ns", "type", "k", []byte("value"))
+	cache.Set("ns", "type", "k1", []byte("hello"))
+	c.storeCache(cache)
 
-	t.Run("bad namespace", func(t *testing.T) {
+	t.Run("bad Namespace", func(t *testing.T) {
 		_, err := c.Keys("foo", "type")
 		assert.Equal(t, ErrNamespaceNotExist, err)
 	})

@@ -32,28 +32,13 @@ var InterestedNSAndType = map[string][]string{
 	NamespaceService: {TypeServiceProxyConfig, TypeServiceDependence},
 }
 
-type config struct {
-	Namespaces map[string]*namespace
-}
-
-type namespace struct {
-	Name  string
-	Types map[string]*typ
-}
-
-type typ struct {
-	Name    string
-	Configs map[string]*RawConf
-}
-
 // Controller is used to store configuration information.
 type Controller struct {
 	sync.Mutex
 	store    Store
 	updateCh chan struct{}
 
-	index    atomic.Value // *config
-	cache    atomic.Value // map[uint32]*rawConf
+	cache    atomic.Value // *Config
 	interval time.Duration
 
 	evtHdls []EventHandler
@@ -74,47 +59,12 @@ func NewController(store Store, interval time.Duration) *Controller {
 	return c
 }
 
-func (c *Controller) updateCacheAndIndex(m map[uint32]*RawConf) {
-	c.Lock()
-	defer c.Unlock()
-	c.storeCache(m)
-	c.storeIndex(m)
+func (c *Controller) loadCache() *Cache {
+	return c.cache.Load().(*Cache)
 }
 
-func (c *Controller) loadCache() map[uint32]*RawConf {
-	return c.cache.Load().(map[uint32]*RawConf)
-}
-
-func (c *Controller) storeCache(m map[uint32]*RawConf) {
-	c.cache.Store(m)
-}
-
-func (c *Controller) loadIndex() *config {
-	return c.index.Load().(*config)
-}
-
-func (c *Controller) storeIndex(m map[uint32]*RawConf) {
-	index := &config{
-		Namespaces: make(map[string]*namespace),
-	}
-	for _, config := range m {
-		if _, ok := index.Namespaces[config.Namespace]; !ok {
-			index.Namespaces[config.Namespace] = &namespace{
-				Name:  config.Namespace,
-				Types: make(map[string]*typ),
-			}
-		}
-		ns := index.Namespaces[config.Namespace]
-		if _, ok := ns.Types[config.Type]; !ok {
-			ns.Types[config.Type] = &typ{
-				Name:    config.Type,
-				Configs: make(map[string]*RawConf),
-			}
-		}
-		typ := ns.Types[config.Type]
-		typ.Configs[config.Key] = config
-	}
-	c.index.Store(index)
+func (c *Controller) storeCache(cfg *Cache) {
+	c.cache.Store(cfg)
 }
 
 func (c *Controller) trySubscribe(namespace ...string) error {
@@ -130,8 +80,8 @@ func (c *Controller) trySubscribe(namespace ...string) error {
 	return nil
 }
 
-func (c *Controller) fetchAll() (map[uint32]*RawConf, error) {
-	res := make(map[uint32]*RawConf)
+func (c *Controller) fetchAll() (*Cache, error) {
+	cache := NewCache()
 	for ns, types := range InterestedNSAndType {
 		for _, typ := range types {
 			keys, err := c.store.GetKeys(ns, typ)
@@ -147,12 +97,11 @@ func (c *Controller) fetchAll() (map[uint32]*RawConf, error) {
 				if err != nil {
 					return nil, err
 				}
-				node := NewRawConf(ns, typ, key, value)
-				res[node.Hashcode()] = node
+				cache.Set(ns, typ, key, value)
 			}
 		}
 	}
-	return res, nil
+	return cache, nil
 }
 
 // Start start the controller.
@@ -161,11 +110,11 @@ func (c *Controller) Start() error {
 		return err
 	}
 	// init Controller
-	conf, err := c.fetchAll()
+	cache, err := c.fetchAll()
 	if err != nil {
 		return err
 	}
-	c.updateCacheAndIndex(conf)
+	c.storeCache(cache)
 	for ns := range InterestedNSAndType {
 		if err := c.trySubscribe(ns); err != nil {
 			return err
@@ -214,37 +163,21 @@ func (c *Controller) trigger() {
 	}
 }
 
-func (c *Controller) diff(newConf map[uint32]*RawConf) {
-	allKeys := make(map[uint32]struct{})
-	for k := range c.loadCache() {
-		allKeys[k] = struct{}{}
-	}
-	for k := range newConf {
-		allKeys[k] = struct{}{}
-	}
-	for k := range allKeys {
-		var (
-			newConf, newConfExist = newConf[k]
-			oldConf, oldConfExist = c.loadCache()[k]
-
-			evt *Event
-		)
-
-		switch {
-		case newConfExist && oldConfExist:
-			if oldConf.Equal(newConf) {
-				continue
-			}
-			evt = NewEvent(EventUpdate, newConf)
-		case newConfExist && !oldConfExist: //Add
-			evt = NewEvent(EventAdd, newConf)
-		case !newConfExist && oldConfExist: // Remove
-			evt = NewEvent(EventDelete, oldConf)
-		}
-
+func (c *Controller) diff(that *Cache) {
+	add, update, del := c.loadCache().Diff(that)
+	do := func(event *Event) {
 		for _, hdl := range c.evtHdls {
-			hdl(evt)
+			hdl(event)
 		}
+	}
+	for _, cfg := range add {
+		do(NewEvent(EventAdd, cfg))
+	}
+	for _, cfg := range update {
+		do(NewEvent(EventUpdate, cfg))
+	}
+	for _, cfg := range del {
+		do(NewEvent(EventDelete, cfg))
 	}
 }
 
@@ -267,7 +200,7 @@ func (c *Controller) doUpdate() {
 		return
 	}
 	c.diff(newConf)
-	c.updateCacheAndIndex(newConf)
+	c.storeCache(newConf)
 }
 
 // RegisterEventHandler registers a handler to handle config event.
@@ -276,25 +209,8 @@ func (c *Controller) RegisterEventHandler(handler EventHandler) {
 	c.evtHdls = append(c.evtHdls, handler)
 }
 
-func (c *Controller) get(namespace, typ, key string) ([]byte, error) {
-	index := c.loadIndex()
-	ns, ok := index.Namespaces[namespace]
-	if !ok {
-		return nil, ErrNamespaceNotExist
-	}
-	t, ok := ns.Types[typ]
-	if !ok {
-		return nil, ErrTypeNotExist
-	}
-	v, ok := t.Configs[key]
-	if !ok {
-		return nil, ErrKeyNotExist
-	}
-	return v.Value, nil
-}
-
 func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
-	return c.get(namespace, typ, key)
+	return c.loadCache().Get(namespace, typ, key)
 }
 
 func (c *Controller) Set(namespace, typ, key string, value []byte) error {
@@ -306,23 +222,10 @@ func (c *Controller) Del(namespace, typ, key string) error {
 }
 
 func (c *Controller) Exist(namespace, typ, key string) bool {
-	_, err := c.get(namespace, typ, key)
+	_, err := c.Get(namespace, typ, key)
 	return err == nil
 }
 
 func (c *Controller) Keys(namespace, typ string) ([]string, error) {
-	index := c.loadIndex()
-	ns, ok := index.Namespaces[namespace]
-	if !ok {
-		return nil, ErrNamespaceNotExist
-	}
-	t, ok := ns.Types[typ]
-	if !ok {
-		return nil, ErrTypeNotExist
-	}
-	keys := make([]string, 0, len(t.Configs))
-	for k := range t.Configs {
-		keys = append(keys, k)
-	}
-	return keys, nil
+	return c.loadCache().Keys(namespace, typ)
 }
