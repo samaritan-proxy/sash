@@ -209,23 +209,28 @@ func (c *Controller) RegisterEventHandler(handler EventHandler) {
 	c.evtHdls = append(c.evtHdls, handler)
 }
 
+// Get return config data by namespace, type and key.
 func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
 	return c.loadCache().Get(namespace, typ, key)
 }
 
+// Set set config data by namespace, type and key.
 func (c *Controller) Set(namespace, typ, key string, value []byte) error {
 	return c.store.Set(namespace, typ, key, value)
 }
 
+// Del del config data by namespace, type and key.
 func (c *Controller) Del(namespace, typ, key string) error {
 	return c.store.Del(namespace, typ, key)
 }
 
+// Exist return true if config data is exist.
 func (c *Controller) Exist(namespace, typ, key string) bool {
 	_, err := c.Get(namespace, typ, key)
 	return err == nil
 }
 
+// Keys return all key by namespace and type
 func (c *Controller) Keys(namespace, typ string) ([]string, error) {
 	return c.loadCache().Keys(namespace, typ)
 }

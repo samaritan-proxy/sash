@@ -38,6 +38,7 @@ func NewRawConf(namespace, typ, key string, value []byte) *RawConf {
 	}
 }
 
+// Hashcode return the hashcode of this RawConf
 func (c *RawConf) Hashcode() uint32 {
 	if c == nil {
 		return 0
@@ -51,6 +52,7 @@ func (c *RawConf) Hashcode() uint32 {
 	return hash.Sum32()
 }
 
+// Equal return true if input RawConf is equal with current RawConf.
 func (c *RawConf) Equal(that *RawConf) bool {
 	if that == nil {
 		return c == nil
@@ -67,35 +69,35 @@ func (c *RawConf) Equal(that *RawConf) bool {
 	return bytes.Equal(that.Value, c.Value)
 }
 
-type Type struct {
+type typ struct {
 	name    string
 	configs map[string][]byte
 }
 
-func NewType(name string) *Type {
-	return &Type{
+func newType(name string) *typ {
+	return &typ{
 		name:    name,
 		configs: make(map[string][]byte),
 	}
 }
 
-func (t *Type) Exist(key string) bool {
+func (t *typ) Exist(key string) bool {
 	_, ok := t.configs[key]
 	return ok
 }
 
-func (t *Type) Get(key string) ([]byte, error) {
+func (t *typ) Get(key string) ([]byte, error) {
 	if !t.Exist(key) {
 		return nil, ErrKeyNotExist
 	}
 	return t.configs[key], nil
 }
 
-func (t *Type) Set(key string, value []byte) {
+func (t *typ) Set(key string, value []byte) {
 	t.configs[key] = value
 }
 
-func (t *Type) Del(key string) error {
+func (t *typ) Del(key string) error {
 	if !t.Exist(key) {
 		return ErrKeyNotExist
 	}
@@ -103,7 +105,7 @@ func (t *Type) Del(key string) error {
 	return nil
 }
 
-func (t *Type) Keys() []string {
+func (t *typ) Keys() []string {
 	keys := make([]string, 0, len(t.configs))
 	for k := range t.configs {
 		keys = append(keys, k)
@@ -111,42 +113,42 @@ func (t *Type) Keys() []string {
 	return keys
 }
 
-func (t *Type) IsEmpty() bool {
+func (t *typ) IsEmpty() bool {
 	return len(t.configs) == 0
 }
 
-type Namespace struct {
+type namespace struct {
 	name  string
-	types map[string]*Type
+	types map[string]*typ
 }
 
-func NewNamespace(name string) *Namespace {
-	return &Namespace{
+func NewNamespace(name string) *namespace {
+	return &namespace{
 		name:  name,
-		types: make(map[string]*Type),
+		types: make(map[string]*typ),
 	}
 }
 
-func (n *Namespace) Exist(typ string) bool {
+func (n *namespace) Exist(typ string) bool {
 	_, ok := n.types[typ]
 	return ok
 }
 
-func (n *Namespace) Get(typ, key string) ([]byte, error) {
+func (n *namespace) Get(typ, key string) ([]byte, error) {
 	if !n.Exist(typ) {
 		return nil, ErrTypeNotExist
 	}
 	return n.types[typ].Get(key)
 }
 
-func (n *Namespace) Set(typ, key string, value []byte) {
+func (n *namespace) Set(typ, key string, value []byte) {
 	if !n.Exist(typ) {
-		n.types[typ] = NewType(typ)
+		n.types[typ] = newType(typ)
 	}
 	n.types[typ].Set(key, value)
 }
 
-func (n *Namespace) Del(typ, key string) error {
+func (n *namespace) Del(typ, key string) error {
 	if !n.Exist(typ) {
 		return ErrTypeNotExist
 	}
@@ -160,25 +162,25 @@ func (n *Namespace) Del(typ, key string) error {
 	return nil
 }
 
-func (n *Namespace) Keys(typ string) ([]string, error) {
+func (n *namespace) Keys(typ string) ([]string, error) {
 	if !n.Exist(typ) {
 		return nil, ErrTypeNotExist
 	}
 	return n.types[typ].Keys(), nil
 }
 
-func (n *Namespace) IsEmpty() bool {
+func (n *namespace) IsEmpty() bool {
 	return len(n.types) == 0
 }
 
 type Cache struct {
-	namespaces map[string]*Namespace
+	namespaces map[string]*namespace
 	all        map[uint32]*RawConf
 }
 
 func NewCache() *Cache {
 	return &Cache{
-		namespaces: make(map[string]*Namespace),
+		namespaces: make(map[string]*namespace),
 		all:        make(map[uint32]*RawConf),
 	}
 }

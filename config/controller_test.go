@@ -124,9 +124,9 @@ func TestController_TrySubscribe(t *testing.T) {
 	assert.NoError(t, c.trySubscribe())
 
 	ss := NewMockSubscribableStore(ctrl)
-	ss.EXPECT().Subscribe("Namespace").Return(nil).Times(1)
+	ss.EXPECT().Subscribe("namespace").Return(nil).Times(1)
 	c = NewController(ss, time.Second)
-	assert.NoError(t, c.trySubscribe("Namespace"))
+	assert.NoError(t, c.trySubscribe("namespace"))
 
 	ss.EXPECT().Subscribe("bad_path").Return(errors.New("test")).Times(1)
 	assert.Error(t, c.trySubscribe("bad_path", "foo"))
@@ -192,9 +192,9 @@ func TestController_Set(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().Set("Namespace", "type", "key", []byte("value")).Return(nil)
+	s.EXPECT().Set("namespace", "type", "key", []byte("value")).Return(nil)
 	c := NewController(s, time.Second)
-	assert.NoError(t, c.Set("Namespace", "type", "key", []byte("value")))
+	assert.NoError(t, c.Set("namespace", "type", "key", []byte("value")))
 }
 
 func TestController_Del(t *testing.T) {
@@ -202,9 +202,9 @@ func TestController_Del(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().Del("Namespace", "type", "key").Return(nil)
+	s.EXPECT().Del("namespace", "type", "key").Return(nil)
 	c := NewController(s, time.Second)
-	assert.NoError(t, c.Del("Namespace", "type", "key"))
+	assert.NoError(t, c.Del("namespace", "type", "key"))
 }
 
 func TestController_TriggerUpdate(t *testing.T) {
@@ -273,7 +273,7 @@ func TestController_Keys(t *testing.T) {
 	cache.Set("ns", "type", "k1", []byte("hello"))
 	c.storeCache(cache)
 
-	t.Run("bad Namespace", func(t *testing.T) {
+	t.Run("bad namespace", func(t *testing.T) {
 		_, err := c.Keys("foo", "type")
 		assert.Equal(t, ErrNamespaceNotExist, err)
 	})

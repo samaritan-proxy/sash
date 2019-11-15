@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	ErrNamespaceNotExist = errors.New("Namespace not exist")
+	ErrNamespaceNotExist = errors.New("namespace not exist")
 	ErrTypeNotExist      = errors.New("type not exist")
 	ErrKeyNotExist       = errors.New("key not exist")
 )
@@ -39,8 +39,8 @@ type Store interface {
 	Stop()
 }
 
-// SubscribableStore allows you to subscribe to the Namespace you are interested in,
-// and will send a notification when there is some change in the Namespace.
+// SubscribableStore allows you to subscribe to the namespace you are interested in,
+// and will send a notification when there is some change in the namespace.
 type SubscribableStore interface {
 	Store
 	Subscribe(namespace string) error
