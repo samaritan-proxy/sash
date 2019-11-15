@@ -90,7 +90,7 @@ func NewDiscoveryClientWithConn(conn zk.Conn, basePath string, options ...discov
 	return c, nil
 }
 
-// Run starts the client unitl the context is canceld or deadline exceed.
+// Run starts the client until the context is canceld or deadline exceed.
 func (c *DiscoveryClient) Run(ctx context.Context) {
 	<-ctx.Done()
 	if c.connCfg != nil {
