@@ -151,6 +151,8 @@ func TestController_GetAndExist(t *testing.T) {
 	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
 	c := NewController(s, 2*time.Second)
 	assert.NoError(t, c.Start())
+	// wait Controller init
+	time.Sleep(time.Millisecond)
 	defer func() {
 		done := make(chan struct{})
 		go func() {

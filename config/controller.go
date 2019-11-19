@@ -45,6 +45,8 @@ type Controller struct {
 
 	stop chan struct{}
 	wg   sync.WaitGroup
+
+	initFinish bool
 }
 
 // NewController return a new Controller.
@@ -60,7 +62,11 @@ func NewController(store Store, interval time.Duration) *Controller {
 }
 
 func (c *Controller) loadCache() *Cache {
-	return c.cache.Load().(*Cache)
+	cache, ok := c.cache.Load().(*Cache)
+	if !ok {
+		return nil
+	}
+	return cache
 }
 
 func (c *Controller) storeCache(cfg *Cache) {
@@ -109,12 +115,6 @@ func (c *Controller) Start() error {
 	if err := c.store.Start(); err != nil {
 		return err
 	}
-	// init Controller
-	cache, err := c.fetchAll()
-	if err != nil {
-		return err
-	}
-	c.storeCache(cache)
 	for ns := range InterestedNSAndType {
 		if err := c.trySubscribe(ns); err != nil {
 			return err
@@ -123,6 +123,7 @@ func (c *Controller) Start() error {
 	c.wg.Add(2)
 	go c.trigger()
 	go c.loop()
+	c.triggerUpdate()
 	return nil
 }
 
@@ -188,19 +189,19 @@ func (c *Controller) loop() {
 		case <-c.stop:
 			return
 		case <-c.updateCh:
-			c.doUpdate()
+			newConf, err := c.fetchAll()
+			if err != nil {
+				logger.Warnf("failed to load config, err: %v", err)
+				continue
+			}
+			if c.initFinish {
+				c.diff(newConf)
+			} else {
+				c.initFinish = true
+			}
+			c.storeCache(newConf)
 		}
 	}
-}
-
-func (c *Controller) doUpdate() {
-	newConf, err := c.fetchAll()
-	if err != nil {
-		logger.Warnf("failed to fetch config from store, err: %v", err)
-		return
-	}
-	c.diff(newConf)
-	c.storeCache(newConf)
 }
 
 // RegisterEventHandler registers a handler to handle config event.
