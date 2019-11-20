@@ -86,11 +86,41 @@ func (c *Controller) trySubscribe(namespace ...string) error {
 	return nil
 }
 
+func doWithRetry(fn func() (interface{}, error), maxRetry int) (res interface{}, err error) {
+	for i := 0; i < maxRetry; i++ {
+		res, err = fn()
+		if err == nil {
+			return
+		}
+	}
+	return
+}
+
+func (c *Controller) getKeysWithRetry(ns, typ string, maxRetry int) (keys []string, err error) {
+	res, err := doWithRetry(func() (i interface{}, e error) {
+		return c.store.GetKeys(ns, typ)
+	}, maxRetry)
+	if err != nil {
+		return nil, err
+	}
+	return res.([]string), nil
+}
+
+func (c *Controller) getValueWithRetry(ns, typ, key string, maxRetry int) (value []byte, err error) {
+	res, err := doWithRetry(func() (i interface{}, e error) {
+		return c.store.Get(ns, typ, key)
+	}, maxRetry)
+	if err != nil {
+		return nil, err
+	}
+	return res.([]byte), nil
+}
+
 func (c *Controller) fetchAll() (*Cache, error) {
 	cache := NewCache()
 	for ns, types := range InterestedNSAndType {
 		for _, typ := range types {
-			keys, err := c.store.GetKeys(ns, typ)
+			keys, err := c.getKeysWithRetry(ns, typ, 3)
 			switch err {
 			case nil:
 			case ErrNamespaceNotExist, ErrTypeNotExist:
@@ -99,7 +129,7 @@ func (c *Controller) fetchAll() (*Cache, error) {
 				return nil, err
 			}
 			for _, key := range keys {
-				value, err := c.store.Get(ns, typ, key)
+				value, err := c.getValueWithRetry(ns, typ, key, 3)
 				if err != nil {
 					return nil, err
 				}

@@ -67,7 +67,7 @@ func TestController_FetchAllWithError(t *testing.T) {
 
 	t.Run("GetKeys", func(t *testing.T) {
 		s := NewMockStore(ctrl)
-		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return(nil, errors.New("err"))
+		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return(nil, errors.New("err")).AnyTimes()
 		c := NewController(s, time.Second)
 		_, err := c.fetchAll()
 		assert.Error(t, err)
@@ -76,7 +76,7 @@ func TestController_FetchAllWithError(t *testing.T) {
 	t.Run("Get", func(t *testing.T) {
 		s := NewMockStore(ctrl)
 		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return([]string{"key"}, nil)
-		s.EXPECT().Get(NamespaceService, TypeServiceProxyConfig, "key").Return(nil, errors.New("err"))
+		s.EXPECT().Get(NamespaceService, TypeServiceProxyConfig, "key").Return(nil, errors.New("err")).AnyTimes()
 		c := NewController(s, time.Second)
 		_, err := c.fetchAll()
 		assert.Error(t, err)
