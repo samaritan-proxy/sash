@@ -69,35 +69,35 @@ func (c *RawConf) Equal(that *RawConf) bool {
 	return bytes.Equal(that.Value, c.Value)
 }
 
-type typ struct {
+type typeCache struct {
 	name    string
 	configs map[string][]byte
 }
 
-func newType(name string) *typ {
-	return &typ{
+func newTypeCache(name string) *typeCache {
+	return &typeCache{
 		name:    name,
 		configs: make(map[string][]byte),
 	}
 }
 
-func (t *typ) Exist(key string) bool {
+func (t *typeCache) Exist(key string) bool {
 	_, ok := t.configs[key]
 	return ok
 }
 
-func (t *typ) Get(key string) ([]byte, error) {
+func (t *typeCache) Get(key string) ([]byte, error) {
 	if !t.Exist(key) {
 		return nil, ErrKeyNotExist
 	}
 	return t.configs[key], nil
 }
 
-func (t *typ) Set(key string, value []byte) {
+func (t *typeCache) Set(key string, value []byte) {
 	t.configs[key] = value
 }
 
-func (t *typ) Del(key string) error {
+func (t *typeCache) Del(key string) error {
 	if !t.Exist(key) {
 		return ErrKeyNotExist
 	}
@@ -105,7 +105,7 @@ func (t *typ) Del(key string) error {
 	return nil
 }
 
-func (t *typ) Keys() []string {
+func (t *typeCache) Keys() []string {
 	keys := make([]string, 0, len(t.configs))
 	for k := range t.configs {
 		keys = append(keys, k)
@@ -113,42 +113,42 @@ func (t *typ) Keys() []string {
 	return keys
 }
 
-func (t *typ) IsEmpty() bool {
+func (t *typeCache) IsEmpty() bool {
 	return len(t.configs) == 0
 }
 
-type namespace struct {
+type nsCache struct {
 	name  string
-	types map[string]*typ
+	types map[string]*typeCache
 }
 
-func NewNamespace(name string) *namespace {
-	return &namespace{
+func newNsCache(name string) *nsCache {
+	return &nsCache{
 		name:  name,
-		types: make(map[string]*typ),
+		types: make(map[string]*typeCache),
 	}
 }
 
-func (n *namespace) Exist(typ string) bool {
+func (n *nsCache) Exist(typ string) bool {
 	_, ok := n.types[typ]
 	return ok
 }
 
-func (n *namespace) Get(typ, key string) ([]byte, error) {
+func (n *nsCache) Get(typ, key string) ([]byte, error) {
 	if !n.Exist(typ) {
 		return nil, ErrTypeNotExist
 	}
 	return n.types[typ].Get(key)
 }
 
-func (n *namespace) Set(typ, key string, value []byte) {
+func (n *nsCache) Set(typ, key string, value []byte) {
 	if !n.Exist(typ) {
-		n.types[typ] = newType(typ)
+		n.types[typ] = newTypeCache(typ)
 	}
 	n.types[typ].Set(key, value)
 }
 
-func (n *namespace) Del(typ, key string) error {
+func (n *nsCache) Del(typ, key string) error {
 	if !n.Exist(typ) {
 		return ErrTypeNotExist
 	}
@@ -162,25 +162,25 @@ func (n *namespace) Del(typ, key string) error {
 	return nil
 }
 
-func (n *namespace) Keys(typ string) ([]string, error) {
+func (n *nsCache) Keys(typ string) ([]string, error) {
 	if !n.Exist(typ) {
 		return nil, ErrTypeNotExist
 	}
 	return n.types[typ].Keys(), nil
 }
 
-func (n *namespace) IsEmpty() bool {
+func (n *nsCache) IsEmpty() bool {
 	return len(n.types) == 0
 }
 
 type Cache struct {
-	namespaces map[string]*namespace
+	namespaces map[string]*nsCache
 	all        map[uint32]*RawConf
 }
 
 func NewCache() *Cache {
 	return &Cache{
-		namespaces: make(map[string]*namespace),
+		namespaces: make(map[string]*nsCache),
 		all:        make(map[uint32]*RawConf),
 	}
 }
@@ -199,7 +199,7 @@ func (c *Cache) Get(ns, typ, key string) ([]byte, error) {
 
 func (c *Cache) Set(ns, typ, key string, value []byte) {
 	if !c.Exist(ns) {
-		c.namespaces[ns] = NewNamespace(ns)
+		c.namespaces[ns] = newNsCache(ns)
 	}
 	c.namespaces[ns].Set(typ, key, value)
 	cfg := NewRawConf(ns, typ, key, value)
