@@ -43,7 +43,6 @@ var (
 	defaultBackoffMaxRetries          = 10
 
 	errCancelled = errors.New("retry is cancelled")
-	errNotFound  = errors.New("resource not found")
 )
 
 func defaultBackOff() *backoff.ExponentialBackOff {
