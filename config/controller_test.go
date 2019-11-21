@@ -53,7 +53,7 @@ func TestController_FetchAll(t *testing.T) {
 	).Return(nil, ErrTypeNotExist).AnyTimes()
 	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
 
-	c := NewController(s, time.Second)
+	c := NewController(s)
 	all, err := c.fetchAll()
 	assert.NoError(t, err)
 	v, err := all.Get(NamespaceService, TypeServiceDependence, "key")
@@ -68,7 +68,7 @@ func TestController_FetchAllWithError(t *testing.T) {
 	t.Run("GetKeys", func(t *testing.T) {
 		s := NewMockStore(ctrl)
 		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return(nil, errors.New("err")).AnyTimes()
-		c := NewController(s, time.Second)
+		c := NewController(s)
 		_, err := c.fetchAll()
 		assert.Error(t, err)
 	})
@@ -77,7 +77,7 @@ func TestController_FetchAllWithError(t *testing.T) {
 		s := NewMockStore(ctrl)
 		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return([]string{"key"}, nil)
 		s.EXPECT().Get(NamespaceService, TypeServiceProxyConfig, "key").Return(nil, errors.New("err")).AnyTimes()
-		c := NewController(s, time.Second)
+		c := NewController(s)
 		_, err := c.fetchAll()
 		assert.Error(t, err)
 	})
@@ -85,7 +85,7 @@ func TestController_FetchAllWithError(t *testing.T) {
 }
 
 func TestController_Diff(t *testing.T) {
-	c := NewController(nil, time.Second)
+	c := NewController(nil)
 	cache := NewCache()
 	cache.Set("ns", "type", "k", []byte("value"))
 	cache.Set("ns", "type", "k1", []byte("hello"))
@@ -120,12 +120,12 @@ func TestController_TrySubscribe(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	c := NewController(s, time.Second)
+	c := NewController(s)
 	assert.NoError(t, c.trySubscribe())
 
 	ss := NewMockSubscribableStore(ctrl)
 	ss.EXPECT().Subscribe("namespace").Return(nil).Times(1)
-	c = NewController(ss, time.Second)
+	c = NewController(ss)
 	assert.NoError(t, c.trySubscribe("namespace"))
 
 	ss.EXPECT().Subscribe("bad_path").Return(errors.New("test")).Times(1)
@@ -149,7 +149,7 @@ func TestController_GetAndExist(t *testing.T) {
 		gomock.Not(gomock.Eq(TypeServiceDependence)),
 	).Return(nil, ErrTypeNotExist).AnyTimes()
 	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
-	c := NewController(s, 2*time.Second)
+	c := NewController(s)
 	assert.NoError(t, c.Start())
 	// wait Controller init
 	time.Sleep(time.Millisecond)
@@ -171,7 +171,7 @@ func TestController_GetAndExist(t *testing.T) {
 }
 
 func TestController_GetWithError(t *testing.T) {
-	c := NewController(nil, time.Second)
+	c := NewController(nil)
 	cache := NewCache()
 	cache.Set("ns", "type", "key", []byte("value"))
 	c.storeCache(cache)
@@ -194,9 +194,29 @@ func TestController_Set(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().Set("namespace", "type", "key", []byte("value")).Return(nil)
-	c := NewController(s, time.Second)
-	assert.NoError(t, c.Set("namespace", "type", "key", []byte("value")))
+	s.EXPECT().Start().Return(nil)
+	s.EXPECT().Stop()
+	s.EXPECT().GetKeys(
+		gomock.Any(),
+		gomock.Any(),
+	).Return(nil, ErrNamespaceNotExist).AnyTimes()
+	s.EXPECT().Set(NamespaceService, TypeServiceDependence, "key", []byte("value")).Return(nil)
+	c := NewController(s)
+	assert.NoError(t, c.Start())
+	// wait Controller init
+	time.Sleep(time.Millisecond)
+	defer func() {
+		done := make(chan struct{})
+		go func() {
+			c.Stop()
+			close(done)
+		}()
+		assertNotTimeout(t, func() {
+			<-done
+		}, time.Second)
+	}()
+	assert.NoError(t, c.Set(NamespaceService, TypeServiceDependence, "key", []byte("value")))
+	assert.True(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
 }
 
 func TestController_Del(t *testing.T) {
@@ -204,13 +224,39 @@ func TestController_Del(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().Del("namespace", "type", "key").Return(nil)
-	c := NewController(s, time.Second)
-	assert.NoError(t, c.Del("namespace", "type", "key"))
+	s.EXPECT().Start().Return(nil)
+	s.EXPECT().Stop()
+	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependence).Return([]string{"key"}, nil)
+	s.EXPECT().GetKeys(
+		gomock.Not(gomock.Eq(NamespaceService)),
+		gomock.Any(),
+	).Return(nil, ErrNamespaceNotExist).AnyTimes()
+	s.EXPECT().GetKeys(
+		NamespaceService,
+		gomock.Not(gomock.Eq(TypeServiceDependence)),
+	).Return(nil, ErrTypeNotExist).AnyTimes()
+	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
+	s.EXPECT().Del(NamespaceService, TypeServiceDependence, "key").Return(nil)
+	c := NewController(s)
+	assert.NoError(t, c.Start())
+	// wait Controller init
+	time.Sleep(time.Millisecond)
+	defer func() {
+		done := make(chan struct{})
+		go func() {
+			c.Stop()
+			close(done)
+		}()
+		assertNotTimeout(t, func() {
+			<-done
+		}, time.Second)
+	}()
+	assert.NoError(t, c.Del(NamespaceService, TypeServiceDependence, "key"))
+	assert.False(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
 }
 
 func TestController_TriggerUpdate(t *testing.T) {
-	c := NewController(nil, time.Second)
+	c := NewController(nil)
 	assert.Len(t, c.updateCh, 0)
 	c.triggerUpdate()
 	select {
@@ -221,7 +267,7 @@ func TestController_TriggerUpdate(t *testing.T) {
 }
 
 func TestController_RegisterEventHandler(t *testing.T) {
-	c := NewController(nil, time.Second)
+	c := NewController(nil)
 	assert.Empty(t, c.evtHdls)
 	c.RegisterEventHandler(func(event *Event) {})
 	assert.Len(t, c.evtHdls, 1)
@@ -233,11 +279,11 @@ func TestController_Trigger(t *testing.T) {
 
 	t.Run("Store", func(t *testing.T) {
 		s := NewMockStore(ctrl)
-		c := NewController(s, 500*time.Millisecond)
+		c := NewController(s, Interval(500*time.Millisecond))
 		c.wg.Add(1)
 		assert.Empty(t, c.updateCh)
 		go func() {
-			c.trigger()
+			c.triggerLoop()
 		}()
 		time.Sleep(600 * time.Millisecond)
 		assert.Len(t, c.updateCh, 1)
@@ -252,11 +298,11 @@ func TestController_Trigger(t *testing.T) {
 		s := NewMockSubscribableStore(ctrl)
 		s.EXPECT().Event().Return(ch)
 
-		c := NewController(s, time.Second)
+		c := NewController(s)
 		c.wg.Add(1)
 		assert.Empty(t, c.updateCh)
 		go func() {
-			c.trigger()
+			c.triggerLoop()
 		}()
 		ch <- struct{}{}
 		time.Sleep(time.Millisecond)
@@ -269,7 +315,7 @@ func TestController_Trigger(t *testing.T) {
 }
 
 func TestController_Keys(t *testing.T) {
-	c := NewController(nil, time.Second)
+	c := NewController(nil)
 	cache := NewCache()
 	cache.Set("ns", "type", "k", []byte("value"))
 	cache.Set("ns", "type", "k1", []byte("hello"))

@@ -69,6 +69,20 @@ func (c *RawConf) Equal(that *RawConf) bool {
 	return bytes.Equal(that.Value, c.Value)
 }
 
+func (c *RawConf) Copy() *RawConf {
+	if c == nil {
+		return nil
+	}
+	value := make([]byte, len(c.Value))
+	copy(value, c.Value)
+	return &RawConf{
+		Namespace: c.Namespace,
+		Type:      c.Type,
+		Key:       c.Key,
+		Value:     value,
+	}
+}
+
 type typeCache struct {
 	name    string
 	configs map[string][]byte
@@ -115,6 +129,22 @@ func (t *typeCache) Keys() []string {
 
 func (t *typeCache) IsEmpty() bool {
 	return len(t.configs) == 0
+}
+
+func (t *typeCache) Copy() *typeCache {
+	if t == nil {
+		return nil
+	}
+	configs := make(map[string][]byte, len(t.configs))
+	for k, v := range t.configs {
+		value := make([]byte, len(v))
+		copy(value, v)
+		configs[k] = value
+	}
+	return &typeCache{
+		name:    t.name,
+		configs: configs,
+	}
 }
 
 type nsCache struct {
@@ -171,6 +201,20 @@ func (n *nsCache) Keys(typ string) ([]string, error) {
 
 func (n *nsCache) IsEmpty() bool {
 	return len(n.types) == 0
+}
+
+func (n *nsCache) Copy() *nsCache {
+	if n == nil {
+		return nil
+	}
+	types := make(map[string]*typeCache, len(n.types))
+	for k, v := range n.types {
+		types[k] = v.Copy()
+	}
+	return &nsCache{
+		name:  n.name,
+		types: types,
+	}
 }
 
 type Cache struct {
@@ -257,4 +301,22 @@ func (c *Cache) Keys(ns, typ string) ([]string, error) {
 		return nil, ErrNamespaceNotExist
 	}
 	return c.namespaces[ns].Keys(typ)
+}
+
+func (c *Cache) Copy() *Cache {
+	if c == nil {
+		return nil
+	}
+	namespaces := make(map[string]*nsCache, len(c.namespaces))
+	for k, v := range c.namespaces {
+		namespaces[k] = v.Copy()
+	}
+	all := make(map[uint32]*RawConf)
+	for k, v := range c.all {
+		all[k] = v.Copy()
+	}
+	return &Cache{
+		namespaces: namespaces,
+		all:        all,
+	}
 }
