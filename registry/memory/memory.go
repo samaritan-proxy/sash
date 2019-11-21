@@ -95,7 +95,7 @@ func (r *Registry) Register(service *model.Service) {
 	r.services[service.Name] = service
 }
 
-// AddInstance adds some instances to the specificed service.
+// AddInstance adds some instances to the specified service.
 func (r *Registry) AddInstance(name string, instances ...*model.ServiceInstance) {
 	service, ok := r.services[name]
 	if !ok {
@@ -108,7 +108,7 @@ func (r *Registry) AddInstance(name string, instances ...*model.ServiceInstance)
 	}
 }
 
-// DeleteInstance deletes some instances from the specificed service.
+// DeleteInstance deletes some instances from the specified service.
 func (r *Registry) DeleteInstance(name string, instances ...*model.ServiceInstance) {
 	service, ok := r.services[name]
 	if !ok {
