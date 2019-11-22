@@ -63,8 +63,13 @@ func (cfg *ConnConfig) auth() string {
 // Conn is a zk connection wrapper.
 type Conn interface {
 	Get(path string) ([]byte, *zk.Stat, error)
+	GetW(path string) ([]byte, *zk.Stat, <-chan zk.Event, error)
 	Children(path string) ([]string, *zk.Stat, error)
+	ChildrenW(path string) ([]string, *zk.Stat, <-chan zk.Event, error)
 	Exists(path string) (bool, *zk.Stat, error)
+	CreateRecursively(p string, data []byte) error
+	DeleteWithChildren(pathcur string) error
+	Update() <-chan zk.Event
 	Close()
 }
 
@@ -160,7 +165,7 @@ func (c *conn) waitConnected() error {
 }
 
 // CreateRecursively creates path with given data and its parents if necessary
-func (c *conn) CreateRecursively(p string, data string) error {
+func (c *conn) CreateRecursively(p string, data []byte) error {
 	err := c.createParentRecursively(p)
 	if err != nil {
 		return err
@@ -168,11 +173,11 @@ func (c *conn) CreateRecursively(p string, data string) error {
 
 	isEqual, err := c.nodeEqual(p, data)
 	if err != nil {
-		_, err = c.Create(p, []byte(data), 0, c.getACL())
+		_, err = c.Create(p, data, 0, c.getACL())
 		return err
 	}
 	if !isEqual {
-		_, err = c.Set(p, []byte(data), -1)
+		_, err = c.Set(p, data, -1)
 	}
 	return err
 }
@@ -200,12 +205,12 @@ func (c *conn) createParentRecursively(p string) error {
 	return err
 }
 
-func (c *conn) nodeEqual(p string, data string) (bool, error) {
+func (c *conn) nodeEqual(p string, data []byte) (bool, error) {
 	existData, _, err := c.Get(p)
 	if err != nil {
 		return false, err
 	}
-	return bytes.Equal([]byte(data), existData), nil
+	return bytes.Equal(data, existData), nil
 }
 
 func (c *conn) getACL() []zk.ACL {
@@ -248,4 +253,8 @@ func (c *conn) walk(pathcur string, fn func(pathcur string, data []byte) error) 
 		return err
 	}
 	return fn(pathcur, data)
+}
+
+func (c *conn) Update() <-chan zk.Event {
+	return c.update
 }

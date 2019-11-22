@@ -21,9 +21,7 @@ import (
 )
 
 var (
-	ErrNamespaceNotExist = errors.New("namespace not exist")
-	ErrTypeNotExist      = errors.New("type not exist")
-	ErrKeyNotExist       = errors.New("key not exist")
+	ErrNotExist = errors.New("config not exist")
 )
 
 // The store is a kv store.

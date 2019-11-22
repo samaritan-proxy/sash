@@ -39,17 +39,17 @@ func TestGetAndSet(t *testing.T) {
 
 	t.Run("bad key", func(t *testing.T) {
 		_, err := s.Get("a", "b", "foo")
-		assert.Equal(t, config.ErrKeyNotExist, err)
+		assert.Equal(t, config.ErrNotExist, err)
 	})
 
 	t.Run("bad type", func(t *testing.T) {
 		_, err = s.Get("a", "foo", "c")
-		assert.Equal(t, config.ErrTypeNotExist, err)
+		assert.Equal(t, config.ErrNotExist, err)
 	})
 
 	t.Run("bad namespace", func(t *testing.T) {
 		_, err = s.Get("foo", "b", "c")
-		assert.Equal(t, config.ErrNamespaceNotExist, err)
+		assert.Equal(t, config.ErrNotExist, err)
 	})
 }
 
@@ -75,9 +75,9 @@ func TestGetKeys(t *testing.T) {
 		assert.NoError(t, s.Set("ns", "type", key, nil))
 	}
 	_, err := s.GetKeys("foo", "foo")
-	assert.Equal(t, config.ErrNamespaceNotExist, err)
+	assert.Equal(t, config.ErrNotExist, err)
 	_, err = s.GetKeys("ns", "foo")
-	assert.Equal(t, config.ErrTypeNotExist, err)
+	assert.Equal(t, config.ErrNotExist, err)
 	ks, err := s.GetKeys("ns", "type")
 	assert.NoError(t, err)
 	sort.Strings(ks)
