@@ -17,7 +17,6 @@ package registry
 import (
 	"context"
 	"math/rand"
-	"reflect"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 )
 
 //go:generate mockgen -source ../model/service.go -destination mock_registry_test.go -package registry
+//go:generate mockgen -source ./cache.go -destination mock_cache.go -package registry -self_package github.com/samaritan-proxy/sash/registry
 
 var (
 	defaultBackoffInitialInterval     = 100 * time.Millisecond
@@ -76,10 +76,17 @@ func SyncJitter(jitter float64) cacheOption {
 }
 
 // Cache is used to cache all registerd services from the underlying registry,
-// and provides a event dispatch mechanism which means the caller could receive
+// and provides a notification mechanism which means the caller could receive
 // and handle the service and instance change event.
+//
+// Handlers execute on one single worker queue in the order by they are registered,
+// and the execution is synchronous. To receive all events, all handlers must be
+// registerd before starting the cache container.
 type Cache interface {
 	model.ServiceRegistry
+	// Exists returns whether the specified service is in.
+	Exists(name string) bool
+
 	// RegisterServiceEventHandler registers a handler to handle servcie event.
 	RegisterServiceEventHandler(handler ServiceEventHandler)
 	// RegisterInstanceEventHandler registers a handler to handle instance event.
@@ -130,7 +137,6 @@ func (c *cache) List() ([]string, error) {
 	for name := range c.services {
 		names = append(names, name)
 	}
-	// TODO: return a temp error when it's under the first sync.
 	return names, nil
 }
 
@@ -138,8 +144,14 @@ func (c *cache) Get(name string) (*model.Service, error) {
 	c.rwMu.RLock()
 	defer c.rwMu.RUnlock()
 	service := c.services[name]
-	// TODO: return a temp error when it's under the first sync.
 	return service, nil
+}
+
+func (c *cache) Exists(name string) bool {
+	c.rwMu.RLock()
+	defer c.rwMu.RUnlock()
+	_, ok := c.services[name]
+	return ok
 }
 
 // RegisterServiceEventHandler registers a handler to handle servcie event.
@@ -321,7 +333,7 @@ func (c *cache) updateService(oldService, newService *model.Service) {
 			continue
 		}
 
-		isEqual := isInstanceEqual(oldInstance, newInstace)
+		isEqual := oldInstance.Equal(newInstace)
 		if !isEqual {
 			updated = append(updated, newInstace)
 		}
@@ -371,20 +383,6 @@ func (c *cache) deleteInstances(serviceName string, instances []*model.ServiceIn
 		Instances:   instances,
 	}
 	c.dispatchInstanceEvent(event)
-}
-
-func isInstanceEqual(inst1, inst2 *model.ServiceInstance) bool {
-	// TODO: move it to the model package.
-	if inst1.Addr != inst2.Addr {
-		return false
-	}
-	if inst1.State != inst2.State {
-		return false
-	}
-	if !reflect.DeepEqual(inst1.Meta, inst1.Meta) {
-		return false
-	}
-	return true
 }
 
 func (c *cache) dispatchServiceEvent(event *ServiceEvent) {

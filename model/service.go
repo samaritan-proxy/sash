@@ -14,7 +14,12 @@
 
 package model
 
-import "context"
+import (
+	"context"
+	"net"
+	"reflect"
+	"strconv"
+)
 
 // Service represents a service.
 type Service struct {
@@ -29,9 +34,21 @@ func NewService(name string, insts ...*ServiceInstance) *Service {
 		Instances: make(map[string]*ServiceInstance),
 	}
 	for _, inst := range insts {
-		service.Instances[inst.Addr] = inst
+		service.Instances[inst.Addr()] = inst
 	}
 	return service
+}
+
+// DeepCopy creates a clone of Service.
+func (svc *Service) DeepCopy() *Service {
+	another := &Service{
+		Name:      svc.Name,
+		Instances: make(map[string]*ServiceInstance, len(svc.Instances)),
+	}
+	for name, inst := range svc.Instances {
+		another.Instances[name] = inst.DeepCopy()
+	}
+	return another
 }
 
 // ServiceInstanceState indicates the state of service instance.
@@ -45,18 +62,53 @@ const (
 
 // ServiceInstance represents an instance of service.
 type ServiceInstance struct {
-	Addr  string               `json:"addr"`
+	IP    string               `json:"ip"`
+	Port  uint16               `json:"port"`
 	State ServiceInstanceState `json:"state"`
 	Meta  map[string]string    `json:"meta"`
 }
 
 // NewServerInstance creates a plain service instance.
-func NewServiceInstance(addr string) *ServiceInstance {
+func NewServiceInstance(ip string, port uint16) *ServiceInstance {
 	return &ServiceInstance{
-		Addr:  addr,
+		IP:    ip,
+		Port:  port,
 		State: StateHealty,
 		Meta:  make(map[string]string),
 	}
+}
+
+// Addr returns the instance address.
+func (inst *ServiceInstance) Addr() string {
+	return net.JoinHostPort(inst.IP, strconv.Itoa(int(inst.Port)))
+}
+
+// DeepCopy creates a clone of service instance.
+func (inst *ServiceInstance) DeepCopy() *ServiceInstance {
+	another := &ServiceInstance{
+		IP:    inst.IP,
+		Port:  inst.Port,
+		State: inst.State,
+		Meta:  inst.Meta,
+	}
+	return another
+}
+
+// Equal returns whether the two instances are equal.
+func (inst *ServiceInstance) Equal(another *ServiceInstance) bool {
+	if inst.IP != another.IP {
+		return false
+	}
+	if inst.Port != another.Port {
+		return false
+	}
+	if inst.State != another.State {
+		return false
+	}
+	if !reflect.DeepEqual(inst.Meta, another.Meta) {
+		return false
+	}
+	return true
 }
 
 // ServiceRegistry represents a service registry.

@@ -1,3 +1,17 @@
+// Copyright 2019 Samaritan Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package discovery
 
 import (
@@ -6,10 +20,14 @@ import (
 	"github.com/samaritan-proxy/samaritan-api/go/api"
 	"github.com/samaritan-proxy/samaritan-api/go/common"
 	"github.com/samaritan-proxy/samaritan-api/go/config/service"
+	"google.golang.org/grpc/peer"
 
+	"github.com/samaritan-proxy/sash/logger"
 	"github.com/samaritan-proxy/sash/model"
 	"github.com/samaritan-proxy/sash/registry"
 )
+
+//go:generate mockgen -package $GOPACKAGE -self_package github.com/samaritan-proxy/sash/$GOPACKAGE --destination ./mock_endpoint_test.go github.com/samaritan-proxy/samaritan-api/go/api DiscoveryService_StreamSvcEndpointsServer
 
 type endpointEvent struct {
 	SvcName string
@@ -42,62 +60,87 @@ func newEndpointEvent(svcName string, added, updated, removed []*model.ServiceIn
 func toEndpoint(inst *model.ServiceInstance) *service.Endpoint {
 	endpoint := &service.Endpoint{
 		Address: &common.Address{
-			Ip:   "",
-			Port: 0,
+			Ip:   inst.IP,
+			Port: uint32(inst.Port),
 		},
 		// TODO: attach type and state
 	}
 	return endpoint
 }
 
-type endpointClient struct {
-	s      *endpointServer
+func instsMapToSlice(instsMap map[string]*model.ServiceInstance) []*model.ServiceInstance {
+	insts := make([]*model.ServiceInstance, 0, len(instsMap))
+	for _, inst := range instsMap {
+		insts = append(insts, inst)
+	}
+	return insts
+}
+
+type (
+	endpointSubHandler   func(svcName string, session *endpointDiscoverySession)
+	endpointUnsubHandler func(svcName string, session *endpointDiscoverySession)
+)
+
+type endpointDiscoverySession struct {
 	stream api.DiscoveryService_StreamSvcEndpointsServer
+	remote *peer.Peer
 
 	subscribed map[string]struct{} // subscribed services.
+	subHdlr    endpointSubHandler
+	unsubHdlr  endpointUnsubHandler
 	eventCh    chan *endpointEvent
 
 	quit chan struct{}
 }
 
-func newEndpointClient(s *endpointServer, stream api.DiscoveryService_StreamSvcEndpointsServer) *endpointClient {
-	return &endpointClient{
-		s:          s,
+func newEndpointDiscoverySession(stream api.DiscoveryService_StreamSvcEndpointsServer) *endpointDiscoverySession {
+	remote, _ := peer.FromContext(stream.Context())
+	return &endpointDiscoverySession{
 		stream:     stream,
+		remote:     remote,
 		subscribed: make(map[string]struct{}, 8),
 		eventCh:    make(chan *endpointEvent, 64),
 		quit:       make(chan struct{}),
 	}
 }
 
-func (c *endpointClient) Serve() {
+func (session *endpointDiscoverySession) SetSubscribeHandler(hdlr endpointSubHandler) {
+	session.subHdlr = hdlr
+}
+
+func (session *endpointDiscoverySession) SetUnsubscribeHandler(hdlr endpointUnsubHandler) {
+	session.unsubHdlr = hdlr
+}
+
+func (session *endpointDiscoverySession) Serve() {
 	recvDone := make(chan struct{})
 	defer func() {
-		close(c.quit)
+		close(session.quit)
 		// wait recv goroutine done
 		<-recvDone
 		// unsubscribe all the services.
-		c.unsubscribeAll()
+		session.unsubscribeAll()
+		logger.Debugf("Endpoint discovery session %s exit", session.remote.Addr)
 	}()
 
 	go func() {
 		defer close(recvDone)
 		for {
-			req, err := c.stream.Recv()
+			req, err := session.stream.Recv()
 			if err != nil {
-				// TODO: add log
+				logger.Warnf("Read from service endpoints stream %s failed: %v", session.remote.Addr, err)
 				return
 			}
 
-			c.subscribe(req.SvcNamesSubscribe...)
-			c.unsubscribe(req.SvcNamesUnsubscribe...)
+			session.subscribe(req.SvcNamesSubscribe...)
+			session.unsubscribe(req.SvcNamesUnsubscribe...)
 		}
 	}()
 
 	var event *endpointEvent
 	for {
 		select {
-		case event = <-c.eventCh:
+		case event = <-session.eventCh:
 		case <-recvDone:
 			return
 		}
@@ -107,66 +150,62 @@ func (c *endpointClient) Serve() {
 			Added:   event.Added,
 			Removed: event.Removed,
 		}
-		if err := c.stream.Send(resp); err != nil {
-			// TODO: add log
+		if err := session.stream.Send(resp); err != nil {
+			logger.Warnf("Send to service endpoints stream %s failed: %v", session.remote.Addr, err)
 			return
 		}
 	}
 }
 
-func (c *endpointClient) subscribe(svcNames ...string) {
+func (session *endpointDiscoverySession) subscribe(svcNames ...string) {
 	for _, svcName := range svcNames {
-		_, ok := c.subscribed[svcName]
+		_, ok := session.subscribed[svcName]
 		if ok {
 			continue
 		}
 
-		c.subscribed[svcName] = struct{}{}
-		c.s.Subscribe(svcName, c)
+		session.subscribed[svcName] = struct{}{}
+		session.subHdlr(svcName, session)
 	}
 }
 
-func (c *endpointClient) unsubscribe(svcNames ...string) {
+func (session *endpointDiscoverySession) unsubscribe(svcNames ...string) {
 	for _, svcName := range svcNames {
-		_, ok := c.subscribed[svcName]
+		_, ok := session.subscribed[svcName]
 		if !ok {
 			continue
 		}
-		c.s.Unsubscribe(svcName, c)
-		delete(c.subscribed, svcName)
+		session.unsubHdlr(svcName, session)
+		delete(session.subscribed, svcName)
 	}
 }
 
-func (c *endpointClient) unsubscribeAll() {
-	for svcName := range c.subscribed {
-		c.unsubscribe(svcName)
+func (session *endpointDiscoverySession) unsubscribeAll() {
+	for svcName := range session.subscribed {
+		session.unsubscribe(svcName)
 	}
 }
 
-func (c *endpointClient) SendEvent(event *endpointEvent) {
+func (session *endpointDiscoverySession) SendEvent(event *endpointEvent) {
 	select {
-	case c.eventCh <- event:
-	case <-c.quit:
+	case session.eventCh <- event:
+	case <-session.quit:
 	}
 }
 
-func (c *endpointClient) Event() <-chan *endpointEvent {
-	return c.eventCh
-}
+type endpointDiscoverySessions map[*endpointDiscoverySession]interface{}
 
-type endpointClients map[*endpointClient]interface{}
-
-type endpointServer struct {
+type endpointDiscoveryServer struct {
 	sync.RWMutex
 	reg registry.Cache
 
-	subscribers map[string]endpointClients // service_name: endpoint_clients
+	subscribers map[string]endpointDiscoverySessions // service_name: endpoint_clients
 }
 
-func newEndpointServer(reg registry.Cache) *endpointServer {
-	s := &endpointServer{
+func newEndpointDiscoveryServer(reg registry.Cache) *endpointDiscoveryServer {
+	s := &endpointDiscoveryServer{
 		reg:         reg,
-		subscribers: make(map[string]endpointClients),
+		subscribers: make(map[string]endpointDiscoverySessions),
 	}
 
 	// register handler that handles registry event
@@ -176,14 +215,9 @@ func newEndpointServer(reg registry.Cache) *endpointServer {
 	return s
 }
 
-func (s *endpointServer) handleRegServiceEvent(event *registry.ServiceEvent) {
+func (s *endpointDiscoveryServer) handleRegServiceEvent(event *registry.ServiceEvent) {
 	svc := event.Service
-
-	// convert instances map to slice
-	insts := make([]*model.ServiceInstance, 0, len(svc.Instances))
-	for _, inst := range svc.Instances {
-		insts = append(insts, inst)
-	}
+	insts := instsMapToSlice(svc.Instances)
 
 	var added, updated, deleted []*model.ServiceInstance
 	switch event.Type {
@@ -198,7 +232,7 @@ func (s *endpointServer) handleRegServiceEvent(event *registry.ServiceEvent) {
 	s.dispatchEvent(etEvent)
 }
 
-func (s *endpointServer) handleRegInstanceEvent(event *registry.InstanceEvent) {
+func (s *endpointDiscoveryServer) handleRegInstanceEvent(event *registry.InstanceEvent) {
 	var added, updated, deleted []*model.ServiceInstance
 	switch event.Type {
 	case registry.EventAdd:
@@ -214,7 +248,7 @@ func (s *endpointServer) handleRegInstanceEvent(event *registry.InstanceEvent) {
 	s.dispatchEvent(etEvent)
 }
 
-func (s *endpointServer) dispatchEvent(event *endpointEvent) {
+func (s *endpointDiscoveryServer) dispatchEvent(event *endpointEvent) {
 	// TODO: improve map performance.
 	s.RLock()
 	defer s.RUnlock()
@@ -224,12 +258,12 @@ func (s *endpointServer) dispatchEvent(event *endpointEvent) {
 	}
 }
 
-func (s *endpointServer) Subscribe(svcName string, c *endpointClient) {
+func (s *endpointDiscoveryServer) handleSubscribe(svcName string, c *endpointDiscoverySession) {
 	s.Lock()
 	defer s.Unlock()
 	subscribers, ok := s.subscribers[svcName]
 	if !ok {
-		subscribers = endpointClients{}
+		subscribers = endpointDiscoverySessions{}
 		s.subscribers[svcName] = subscribers
 	}
 
@@ -239,23 +273,18 @@ func (s *endpointServer) Subscribe(svcName string, c *endpointClient) {
 
 	subscribers[c] = struct{}{}
 	// send all instances when first subscribe
-	svc, err := s.reg.Get(svcName)
-	// error only can be service not found.
-	if err != nil {
+	svc, _ := s.reg.Get(svcName)
+	// service doesn't exist.
+	if svc == nil {
 		return
 	}
 
-	// convert instances map to slice
-	insts := make([]*model.ServiceInstance, 0, len(svc.Instances))
-	for _, inst := range svc.Instances {
-		insts = append(insts, inst)
-	}
-
+	insts := instsMapToSlice(svc.Instances)
 	event := newEndpointEvent(svc.Name, insts, nil, nil)
 	c.SendEvent(event)
 }
 
-func (s *endpointServer) Unsubscribe(svcName string, c *endpointClient) {
+func (s *endpointDiscoveryServer) handleUnsubscribe(svcName string, c *endpointDiscoverySession) {
 	s.Lock()
 	defer s.Unlock()
 	// Go runtime never shrink map after elemenets removal, refer to: https://github.com/golang/go/issues/20135
@@ -267,7 +296,9 @@ func (s *endpointServer) Unsubscribe(svcName string, c *endpointClient) {
 	delete(subscribers, c)
 }
 
-func (s *endpointServer) StreamSvcEndpoints(stream api.DiscoveryService_StreamSvcEndpointsServer) {
-	c := newEndpointClient(s, stream)
-	c.Serve()
+func (s *endpointDiscoveryServer) StreamSvcEndpoints(stream api.DiscoveryService_StreamSvcEndpointsServer) {
+	session := newEndpointDiscoverySession(stream)
+	session.SetSubscribeHandler(s.handleSubscribe)
+	session.SetUnsubscribeHandler(s.handleUnsubscribe)
+	session.Serve()
 }
