@@ -37,11 +37,16 @@ type endpointEvent struct {
 }
 
 func newEndpointEvent(svcName string, added, updated, removed []*model.ServiceInstance) *endpointEvent {
-	event := &endpointEvent{
-		SvcName: svcName,
-		Added:   make([]*service.Endpoint, len(added)),
-		Updated: make([]*service.Endpoint, len(updated)),
-		Removed: make([]*service.Endpoint, len(removed)),
+	event := &endpointEvent{SvcName: svcName}
+
+	if len(added) > 0 {
+		event.Added = make([]*service.Endpoint, len(added))
+	}
+	if len(updated) > 0 {
+		event.Updated = make([]*service.Endpoint, len(updated))
+	}
+	if len(removed) > 0 {
+		event.Removed = make([]*service.Endpoint, len(removed))
 	}
 
 	for i, inst := range added {
@@ -149,6 +154,7 @@ func (session *endpointDiscoverySession) Serve() {
 			SvcName: event.SvcName,
 			Added:   event.Added,
 			Removed: event.Removed,
+			// TODO: attach updated endpoints.
 		}
 		if err := session.stream.Send(resp); err != nil {
 			logger.Warnf("Send to service endpoints stream %s failed: %v", session.remote.Addr, err)
@@ -164,8 +170,10 @@ func (session *endpointDiscoverySession) subscribe(svcNames ...string) {
 			continue
 		}
 
+		if session.subHdlr != nil {
+			session.subHdlr(svcName, session)
+		}
 		session.subscribed[svcName] = struct{}{}
-		session.subHdlr(svcName, session)
 	}
 }
 
@@ -175,7 +183,9 @@ func (session *endpointDiscoverySession) unsubscribe(svcNames ...string) {
 		if !ok {
 			continue
 		}
-		session.unsubHdlr(svcName, session)
+		if session.unsubHdlr != nil {
+			session.unsubHdlr(svcName, session)
+		}
 		delete(session.subscribed, svcName)
 	}
 }
@@ -199,7 +209,7 @@ type endpointDiscoveryServer struct {
 	sync.RWMutex
 	reg registry.Cache
 
-	subscribers map[string]endpointDiscoverySessions // service_name: endpoint_clients
+	subscribers map[string]endpointDiscoverySessions // service: sessions
 }
 
 func newEndpointDiscoveryServer(reg registry.Cache) *endpointDiscoveryServer {
@@ -294,6 +304,11 @@ func (s *endpointDiscoveryServer) handleUnsubscribe(svcName string, c *endpointD
 		return
 	}
 	delete(subscribers, c)
+}
+
+// Subscribers returns all subscribers. It's only for test, and not goroutine-safe.
+func (s *endpointDiscoveryServer) Subscribers() map[string]endpointDiscoverySessions {
+	return s.subscribers
 }
 
 func (s *endpointDiscoveryServer) StreamSvcEndpoints(stream api.DiscoveryService_StreamSvcEndpointsServer) {
