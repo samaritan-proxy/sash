@@ -56,7 +56,7 @@ type ServiceInstanceState uint8
 
 // The following shows the available states of service instance.
 const (
-	StateHealty ServiceInstanceState = iota
+	StateHealthy ServiceInstanceState = iota
 	StateUnhealthy
 )
 
@@ -73,7 +73,7 @@ func NewServiceInstance(ip string, port uint16) *ServiceInstance {
 	return &ServiceInstance{
 		IP:    ip,
 		Port:  port,
-		State: StateHealty,
+		State: StateHealthy,
 		Meta:  make(map[string]string),
 	}
 }
@@ -113,10 +113,10 @@ func (inst *ServiceInstance) Equal(another *ServiceInstance) bool {
 
 // ServiceRegistry represents a service registry.
 type ServiceRegistry interface {
-	// Run runs the registry unitl a stop signal received.
+	// Run runs the registry until a stop signal received.
 	Run(ctx context.Context)
 
-	// List returns all registerd service names.
+	// List returns all registered service names.
 	List() ([]string, error)
 	// Get gets the service info with the given name.
 	Get(name string) (*Service, error)

@@ -75,7 +75,7 @@ func SyncJitter(jitter float64) cacheOption {
 	}
 }
 
-// Cache is used to cache all registerd services from the underlying registry,
+// Cache is used to cache all registered services from the underlying registry,
 // and provides a notification mechanism which means the caller could receive
 // and handle the service and instance change event.
 //
@@ -87,7 +87,7 @@ type Cache interface {
 	// Exists returns whether the specified service is in.
 	Exists(name string) bool
 
-	// RegisterServiceEventHandler registers a handler to handle servcie event.
+	// RegisterServiceEventHandler registers a handler to handle service event.
 	RegisterServiceEventHandler(handler ServiceEventHandler)
 	// RegisterInstanceEventHandler registers a handler to handle instance event.
 	RegisterInstanceEventHandler(handler InstanceEventHandler)
@@ -154,7 +154,7 @@ func (c *cache) Exists(name string) bool {
 	return ok
 }
 
-// RegisterServiceEventHandler registers a handler to handle servcie event.
+// RegisterServiceEventHandler registers a handler to handle service event.
 // It is not goroutine-safe, should call it before execute Run.
 func (c *cache) RegisterServiceEventHandler(handler ServiceEventHandler) {
 	c.svcEvtHdls = append(c.svcEvtHdls, handler)
@@ -216,7 +216,7 @@ func (c *cache) Sync(ctx context.Context) error {
 	eb := defaultBackOff()
 	// the total retry time is under six seconds.
 	b := backoff.WithMaxRetries(eb, uint64(defaultBackoffMaxRetries))
-	// TODO: improve the performace with concurrency.
+	// TODO: improve the performance with concurrency.
 	for _, name := range names {
 		b.Reset()
 
@@ -326,16 +326,16 @@ func (c *cache) updateService(oldService, newService *model.Service) {
 
 	// added or updated
 	var added, updated []*model.ServiceInstance
-	for addr, newInstace := range newInstances {
+	for addr, newInstance := range newInstances {
 		oldInstance, ok := oldInstances[addr]
 		if !ok {
-			added = append(added, newInstace)
+			added = append(added, newInstance)
 			continue
 		}
 
-		isEqual := oldInstance.Equal(newInstace)
+		isEqual := oldInstance.Equal(newInstance)
 		if !isEqual {
-			updated = append(updated, newInstace)
+			updated = append(updated, newInstance)
 		}
 	}
 
