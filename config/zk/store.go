@@ -105,4 +105,9 @@ func (s *Store) GetKeys(namespace, typ string) ([]string, error) {
 
 func (s *Store) Start() error { return nil }
 
-func (s *Store) Stop() {}
+func (s *Store) Stop() {
+	// zk conn is created inside
+	if s.connCfg != nil {
+		s.conn.Close()
+	}
+}
