@@ -25,10 +25,11 @@ import (
 	"github.com/samaritan-proxy/samaritan-api/go/api"
 	"github.com/samaritan-proxy/samaritan-api/go/common"
 	"github.com/samaritan-proxy/samaritan-api/go/config/service"
-	"github.com/samaritan-proxy/sash/model"
-	"github.com/samaritan-proxy/sash/registry"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/peer"
+
+	"github.com/samaritan-proxy/sash/model"
+	"github.com/samaritan-proxy/sash/registry"
 )
 
 func makeEndpoint(ip string, port uint32) *service.Endpoint {
