@@ -151,11 +151,11 @@ func TestDiscoveryClientGetService(t *testing.T) {
 			nil, nil,
 		)
 		conn.EXPECT().Get("/service/foo/127.0.0.1_8888").Return(
-			[]byte(`{"addr": "127.0.0.1:8888"}`),
+			[]byte(`{"ip": "127.0.0.1", "port":8888}`),
 			nil, nil,
 		)
 		conn.EXPECT().Get("/service/foo/127.0.0.1_8889").Return(
-			[]byte(`{"addr": "127.0.0.1:8889"}`),
+			[]byte(`{"ip": "127.0.0.1", "port":8889}`),
 			nil, nil,
 		)
 

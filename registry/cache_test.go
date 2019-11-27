@@ -185,8 +185,8 @@ func TestCacheOmitServiceEvents(t *testing.T) {
 	svc1 := model.NewService("svc1")
 	svc2 := model.NewService(
 		"svc2",
-		model.NewServiceInstance("127.0.0.1:8888"),
-		model.NewServiceInstance("127.0.0.1:8889"),
+		model.NewServiceInstance("127.0.0.1", 8888),
+		model.NewServiceInstance("127.0.0.1", 8889),
 	)
 	r := memory.NewRegistry(svc1, svc2)
 
@@ -207,7 +207,7 @@ func TestCacheOmitServiceEvents(t *testing.T) {
 	// add svc3
 	svc3 := model.NewService(
 		"svc3",
-		model.NewServiceInstance("127.0.0.1:9999"),
+		model.NewServiceInstance("127.0.0.1", 9999),
 	)
 	r.Register(svc3)
 
@@ -232,8 +232,8 @@ func TestCacheOmitServiceEvents(t *testing.T) {
 }
 
 func TestCacheOmitInstanceEvents(t *testing.T) {
-	inst1 := model.NewServiceInstance("127.0.0.1:8888")
-	inst2 := model.NewServiceInstance("127.0.0.1:8889")
+	inst1 := model.NewServiceInstance("127.0.0.1", 8888)
+	inst2 := model.NewServiceInstance("127.0.0.1", 8889)
 	svcName := "svc1"
 	svc := model.NewService(svcName, inst1, inst2)
 	r := memory.NewRegistry(svc)
@@ -255,7 +255,7 @@ func TestCacheOmitInstanceEvents(t *testing.T) {
 	// update inst2
 	inst2.State = model.StateUnhealthy
 	// add inst3
-	inst3 := model.NewServiceInstance("127.0.0.1:9999")
+	inst3 := model.NewServiceInstance("127.0.0.1", 9999)
 	r.AddInstance("svc1", inst3)
 
 	err = c.Sync(context.TODO())
