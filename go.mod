@@ -10,4 +10,5 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tevino/log v0.0.0-20191011110715-a95875091fd9
 	go.uber.org/atomic v1.5.0
+	google.golang.org/grpc v1.23.1
 )

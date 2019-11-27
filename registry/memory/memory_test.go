@@ -35,6 +35,9 @@ func TestGet(t *testing.T) {
 	r := NewRegistry(model.NewService(name))
 	service, _ := r.Get(name)
 	assert.NotNil(t, service)
+	// get non-existent service
+	service, _ = r.Get("bar")
+	assert.Nil(t, service)
 }
 
 func TestRegister(t *testing.T) {
@@ -58,6 +61,11 @@ func TestDeregister(t *testing.T) {
 	r.Deregister(name)
 	names, _ = r.List()
 	assert.Len(t, names, 0)
+
+	// deregister non-existent service
+	r.Deregister("bar")
+	names, _ = r.List()
+	assert.Len(t, names, 0)
 }
 
 func TestAddInstance(t *testing.T) {
@@ -66,14 +74,19 @@ func TestAddInstance(t *testing.T) {
 	service, _ := r.Get(name)
 	assert.Len(t, service.Instances, 0)
 
-	inst := model.NewServiceInstance("1.1.1.1")
+	inst := model.NewServiceInstance("1.1.1.1", 0)
 	r.AddInstance(name, inst)
 	service, _ = r.Get(name)
 	assert.Len(t, service.Instances, 1)
+
+	// add to non-existent service
+	r.AddInstance("bar", inst)
+	service, _ = r.Get("bar")
+	assert.Nil(t, service)
 }
 
 func TestDeleteInstance(t *testing.T) {
-	inst := model.NewServiceInstance("1.1.1.1")
+	inst := model.NewServiceInstance("1.1.1.1", 0)
 	name := "foo"
 	r := NewRegistry(
 		model.NewService(name, inst),
@@ -84,4 +97,7 @@ func TestDeleteInstance(t *testing.T) {
 	r.DeleteInstance(name, inst)
 	service, _ = r.Get(name)
 	assert.Len(t, service.Instances, 0)
+
+	// delete from non-existent service
+	r.DeleteInstance("bar", inst)
 }
