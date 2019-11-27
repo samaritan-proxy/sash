@@ -66,14 +66,14 @@ func TestAddInstance(t *testing.T) {
 	service, _ := r.Get(name)
 	assert.Len(t, service.Instances, 0)
 
-	inst := model.NewServiceInstance("1.1.1.1")
+	inst := model.NewServiceInstance("1.1.1.1", 0)
 	r.AddInstance(name, inst)
 	service, _ = r.Get(name)
 	assert.Len(t, service.Instances, 1)
 }
 
 func TestDeleteInstance(t *testing.T) {
-	inst := model.NewServiceInstance("1.1.1.1")
+	inst := model.NewServiceInstance("1.1.1.1", 0)
 	name := "foo"
 	r := NewRegistry(
 		model.NewService(name, inst),
