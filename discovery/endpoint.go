@@ -311,9 +311,10 @@ func (s *endpointDiscoveryServer) Subscribers() map[string]endpointDiscoverySess
 	return s.subscribers
 }
 
-func (s *endpointDiscoveryServer) StreamSvcEndpoints(stream api.DiscoveryService_StreamSvcEndpointsServer) {
+func (s *endpointDiscoveryServer) StreamSvcEndpoints(stream api.DiscoveryService_StreamSvcEndpointsServer) (err error) {
 	session := newEndpointDiscoverySession(stream)
 	session.SetSubscribeHandler(s.handleSubscribe)
 	session.SetUnsubscribeHandler(s.handleUnsubscribe)
 	session.Serve()
+	return
 }
