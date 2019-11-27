@@ -30,26 +30,28 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestDiscoveryServerStreamSvcEndpoints(t *testing.T) {
+func TestStreamSvcEndpoints(t *testing.T) {
 	reg := memory.NewRegistry(
 		model.NewService("foo", model.NewServiceInstance("127.0.0.1", 8888)),
 	)
 	regCache := registry.NewCache(reg)
-	ctx, cancel := context.WithCancel(context.TODO())
-	go regCache.Run(ctx)
-	defer cancel()
 
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-
 	s := NewServer(l, regCache)
+
+	// start cache controller
+	ctx, stopCache := context.WithCancel(context.TODO())
+	go regCache.Run(ctx)
+	defer stopCache()
+	// start server
 	serverDone := make(chan struct{})
 	go func() {
 		defer close(serverDone)
-		s.Serve()
+		s.Serve() //nolint:errcheck
 	}()
 	defer func() {
 		s.Stop()
@@ -68,7 +70,7 @@ func TestDiscoveryServerStreamSvcEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stream.CloseSend()
+	defer stream.CloseSend() //nolint:errcheck
 
 	// send
 	req := &api.SvcEndpointDiscoveryRequest{
