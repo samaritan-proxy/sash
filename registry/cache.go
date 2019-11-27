@@ -58,18 +58,18 @@ func defaultCacheOptions() *cacheOptions {
 	}
 }
 
-// cacheOption sets the options for cache.
-type cacheOption func(o *cacheOptions)
+// CacheOption sets the options for cache.
+type CacheOption func(o *cacheOptions)
 
 // SyncFreq sets the sync frequency.
-func SyncFreq(freq time.Duration) cacheOption {
+func SyncFreq(freq time.Duration) CacheOption {
 	return func(o *cacheOptions) {
 		o.syncFreq = freq
 	}
 }
 
 // SyncJitter sets the jitter for sync frequency.
-func SyncJitter(jitter float64) cacheOption {
+func SyncJitter(jitter float64) CacheOption {
 	return func(o *cacheOptions) {
 		o.syncJitter = jitter
 	}
@@ -94,7 +94,7 @@ type Cache interface {
 }
 
 // NewCache creates a cache container for service registry.
-func NewCache(r model.ServiceRegistry, opts ...cacheOption) Cache {
+func NewCache(r model.ServiceRegistry, opts ...CacheOption) Cache {
 	c, ok := r.(Cache)
 	// if already implements the Cache interface, return it immediately.
 	if ok {
@@ -114,7 +114,7 @@ type cache struct {
 	instEvtHdls []InstanceEventHandler
 }
 
-func newCache(r model.ServiceRegistry, opts ...cacheOption) *cache {
+func newCache(r model.ServiceRegistry, opts ...CacheOption) *cache {
 	// init options
 	o := defaultCacheOptions()
 	for _, opt := range opts {
