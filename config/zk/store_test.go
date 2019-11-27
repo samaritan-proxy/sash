@@ -1,6 +1,7 @@
 package zk
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -43,6 +44,16 @@ func TestStore_Get(t *testing.T) {
 		assert.Equal(t, config.ErrNotExist, err)
 	})
 
+	t.Run("other error", func(t *testing.T) {
+		conn := zk.NewMockConn(ctrl)
+		targetErr := errors.New("err")
+		conn.EXPECT().Get(gomock.Any()).Return(nil, nil, targetErr)
+		s, err := NewWithConn(conn, "/configs")
+		assert.NoError(t, err)
+		_, err = s.Get("ns", "type", "key1")
+		assert.Equal(t, targetErr, err)
+	})
+
 	t.Run("correct", func(t *testing.T) {
 		s, err := NewWithConn(conn, "/configs")
 		assert.NoError(t, err)
@@ -75,6 +86,15 @@ func TestStore_Del(t *testing.T) {
 		s, err := NewWithConn(conn, "/configs")
 		assert.NoError(t, err)
 		assert.Equal(t, config.ErrNotExist, s.Del("ns", "type", "key1"))
+	})
+
+	t.Run("other error", func(t *testing.T) {
+		conn := zk.NewMockConn(ctrl)
+		targetErr := errors.New("err")
+		conn.EXPECT().DeleteWithChildren(gomock.Any()).Return(targetErr)
+		s, err := NewWithConn(conn, "/configs")
+		assert.NoError(t, err)
+		assert.Equal(t, targetErr, s.Del("ns", "type", "key1"))
 	})
 
 	t.Run("correct", func(t *testing.T) {
@@ -118,6 +138,16 @@ func TestStore_GetKeys(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = s.GetKeys("ns", "type1")
 		assert.Equal(t, config.ErrNotExist, err)
+	})
+
+	t.Run("other error", func(t *testing.T) {
+		conn := zk.NewMockConn(ctrl)
+		targetErr := errors.New("err")
+		conn.EXPECT().Children(gomock.Any()).Return(nil, nil, targetErr)
+		s, err := NewWithConn(conn, "/configs")
+		assert.NoError(t, err)
+		_, err = s.GetKeys("ns", "type1")
+		assert.Equal(t, targetErr, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
