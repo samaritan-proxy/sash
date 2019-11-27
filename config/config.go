@@ -102,7 +102,7 @@ func (t *typeCache) Exist(key string) bool {
 
 func (t *typeCache) Get(key string) ([]byte, error) {
 	if !t.Exist(key) {
-		return nil, ErrKeyNotExist
+		return nil, ErrNotExist
 	}
 	return t.configs[key], nil
 }
@@ -113,7 +113,7 @@ func (t *typeCache) Set(key string, value []byte) {
 
 func (t *typeCache) Del(key string) error {
 	if !t.Exist(key) {
-		return ErrKeyNotExist
+		return ErrNotExist
 	}
 	delete(t.configs, key)
 	return nil
@@ -166,7 +166,7 @@ func (n *nsCache) Exist(typ string) bool {
 
 func (n *nsCache) Get(typ, key string) ([]byte, error) {
 	if !n.Exist(typ) {
-		return nil, ErrTypeNotExist
+		return nil, ErrNotExist
 	}
 	return n.types[typ].Get(key)
 }
@@ -180,7 +180,7 @@ func (n *nsCache) Set(typ, key string, value []byte) {
 
 func (n *nsCache) Del(typ, key string) error {
 	if !n.Exist(typ) {
-		return ErrTypeNotExist
+		return ErrNotExist
 	}
 	typs := n.types[typ]
 	if err := typs.Del(key); err != nil {
@@ -194,7 +194,7 @@ func (n *nsCache) Del(typ, key string) error {
 
 func (n *nsCache) Keys(typ string) ([]string, error) {
 	if !n.Exist(typ) {
-		return nil, ErrTypeNotExist
+		return nil, ErrNotExist
 	}
 	return n.types[typ].Keys(), nil
 }
@@ -236,7 +236,7 @@ func (c *Cache) Exist(ns string) bool {
 
 func (c *Cache) Get(ns, typ, key string) ([]byte, error) {
 	if !c.Exist(ns) {
-		return nil, ErrNamespaceNotExist
+		return nil, ErrNotExist
 	}
 	return c.namespaces[ns].Get(typ, key)
 }
@@ -252,7 +252,7 @@ func (c *Cache) Set(ns, typ, key string, value []byte) {
 
 func (c *Cache) Del(ns, typ, key string) error {
 	if !c.Exist(ns) {
-		return ErrNamespaceNotExist
+		return ErrNotExist
 	}
 	namespace := c.namespaces[ns]
 	if err := namespace.Del(typ, key); err != nil {
@@ -298,7 +298,7 @@ func (c *Cache) Diff(that *Cache) (add, update, del []*RawConf) {
 
 func (c *Cache) Keys(ns, typ string) ([]string, error) {
 	if !c.Exist(ns) {
-		return nil, ErrNamespaceNotExist
+		return nil, ErrNotExist
 	}
 	return c.namespaces[ns].Keys(typ)
 }

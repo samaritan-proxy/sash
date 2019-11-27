@@ -158,7 +158,7 @@ func (c *Controller) getKeysWithRetry(ns, typ string) (keys []string, err error)
 	res, err := c.doRetry(func() (i interface{}, e error) {
 		i, e = c.store.GetKeys(ns, typ)
 		switch e {
-		case ErrNamespaceNotExist, ErrTypeNotExist:
+		case ErrNotExist:
 			return nil, nil
 		default:
 			return
@@ -175,7 +175,7 @@ func (c *Controller) getValueWithRetry(ns, typ, key string) (value []byte, err e
 	res, err := c.doRetry(func() (i interface{}, e error) {
 		i, e = c.store.Get(ns, typ, key)
 		switch e {
-		case ErrNamespaceNotExist, ErrTypeNotExist, ErrKeyNotExist:
+		case ErrNotExist:
 			return nil, nil
 		default:
 			return
