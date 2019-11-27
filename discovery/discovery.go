@@ -22,7 +22,7 @@ type ServerOption func(o *serverOptions)
 
 // Server is an implementation of api.DiscoveryServiceServer.
 type Server struct {
-	addr    string
+	l       net.Listener
 	options *serverOptions
 
 	g   *grpc.Server
@@ -30,7 +30,7 @@ type Server struct {
 }
 
 // NewServer creates a discovery server.
-func NewServer(addr string, reg registry.Cache, opts ...ServerOption) *Server {
+func NewServer(l net.Listener, reg registry.Cache, opts ...ServerOption) *Server {
 	o := defaultServerOptions()
 	for _, opt := range opts {
 		opt(o)
@@ -38,7 +38,7 @@ func NewServer(addr string, reg registry.Cache, opts ...ServerOption) *Server {
 
 	eds := newEndpointDiscoveryServer(reg)
 	s := &Server{
-		addr:    addr,
+		l:       l,
 		options: o,
 		eds:     eds,
 	}
@@ -60,11 +60,7 @@ func (s *Server) grpcOptions() []grpc.ServerOption {
 }
 
 func (s *Server) Serve() error {
-	l, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return err
-	}
-	return s.g.Serve(l)
+	return s.g.Serve(s.l)
 }
 
 // Stop stops the server.
