@@ -50,6 +50,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191115092309-8c45bdaed657 h1:GFGSUpGL+QNzlayDS+LVLJvZMcoJdG/TusNXpzsD95A=
 github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191115092309-8c45bdaed657/go.mod h1:sUe4KseO0gweqGhlAu6nP45HJ6eMnnJxzZeVjPIU16E=
+github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191128062029-063b4ce6f250 h1:CjmvjZEzNS66YKtmpUbFNdNRTzKRo/5LEsaf5mHqXPM=
+github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191128062029-063b4ce6f250/go.mod h1:sUe4KseO0gweqGhlAu6nP45HJ6eMnnJxzZeVjPIU16E=
 github.com/sirupsen/logrus v1.1.1 h1:VzGj7lhU7KEB9e9gMpAV/v5XT2NVSvLJhJLCWbnkgXg=
 github.com/sirupsen/logrus v1.1.1/go.mod h1:zrgwTnHtNr00buQ1vSptGe8m1f/BbgsPukg8qsT7A+A=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
