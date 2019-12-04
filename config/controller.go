@@ -200,9 +200,6 @@ func (c *Controller) fetchAll() (*Cache, error) {
 				if err != nil {
 					return nil, err
 				}
-				if value == nil {
-					continue
-				}
 				cache.Set(ns, typ, key, value)
 			}
 		}
@@ -313,6 +310,11 @@ func (c *Controller) RegisterEventHandler(handler EventHandler) {
 // Get return config data by namespace, type and key.
 func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
 	return c.store.Get(namespace, typ, key)
+}
+
+// Get return config data by namespace, type and key from cache.
+func (c *Controller) GetCache(namespace, typ, key string) ([]byte, error) {
+	return c.loadCache().Get(namespace, typ, key)
 }
 
 // Set set config data by namespace, type and key.

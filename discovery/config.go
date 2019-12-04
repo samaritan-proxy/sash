@@ -167,6 +167,14 @@ func newConfigDiscoveryServer(ctl *config.Controller) *configDiscoveryServer {
 	return s
 }
 
+func toServiceConfig(b []byte) (*service.Config, error) {
+	cfg := new(service.Config)
+	if err := cfg.Unmarshal(b); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
 func (s *configDiscoveryServer) handleConfigEvent(evt *config.Event) {
 	if evt.Config.Namespace != config.NamespaceService ||
 		evt.Config.Type != config.TypeServiceProxyConfig {
@@ -175,8 +183,8 @@ func (s *configDiscoveryServer) handleConfigEvent(evt *config.Event) {
 	var event configEvent
 	switch evt.Type {
 	case config.EventAdd, config.EventUpdate:
-		cfg := new(service.Config)
-		if err := cfg.Unmarshal(evt.Config.Value); err != nil {
+		cfg, err := toServiceConfig(evt.Config.Value)
+		if err != nil {
 			logger.Warnf("failed to unmarshal config of service[%s], err: %v", evt.Config.Key, err)
 			return
 		}
@@ -215,12 +223,12 @@ func (s *configDiscoveryServer) handleSubscribe(svcName string, c *configDiscove
 	subscribers[c] = struct{}{}
 
 	// send config when first subscribe
-	rawConf, err := s.ctl.Get(config.NamespaceService, config.TypeServiceProxyConfig, svcName)
+	rawConf, err := s.ctl.GetCache(config.NamespaceService, config.TypeServiceProxyConfig, svcName)
 	if err != nil {
 		return
 	}
-	svcCfg := new(service.Config)
-	if err := svcCfg.Unmarshal(rawConf); err != nil {
+	svcCfg, err := toServiceConfig(rawConf)
+	if err != nil {
 		return
 	}
 	c.SendEvent(map[string]*service.Config{svcName: svcCfg})

@@ -36,8 +36,7 @@ type dependencyDiscoverySession struct {
 	stream api.DiscoveryService_StreamDependenciesServer
 	remote *peer.Peer
 
-	eventCh   chan *config.Event
-	unsubHdlr dependencyUnsubHandler
+	eventCh chan *config.Event
 
 	lastDeps []string
 
@@ -50,7 +49,7 @@ func newDependencyDiscoverySession(instID string, stream api.DiscoveryService_St
 		instID:  instID,
 		stream:  stream,
 		remote:  remote,
-		eventCh: make(chan *config.Event, 64),
+		eventCh: make(chan *config.Event, 16),
 		quit:    make(chan struct{}),
 	}
 }
@@ -110,16 +109,9 @@ func (s *dependencyDiscoverySession) buildRespFromEvt(event *config.Event) (*api
 	}, nil
 }
 
-func (s *dependencyDiscoverySession) SetUnsubscribeHandler(hdlr dependencyUnsubHandler) {
-	s.unsubHdlr = hdlr
-}
-
 func (s *dependencyDiscoverySession) Serve() {
 	defer func() {
 		close(s.quit)
-		if s.unsubHdlr != nil {
-			s.unsubHdlr(s.instID, s)
-		}
 		logger.Debugf("Dependency discovery session %s exit", s.remote.Addr)
 	}()
 
@@ -181,14 +173,6 @@ func (s *dependencyDiscoveryServer) handleConfigEvent(evt *config.Event) {
 	subscriber.SendEvent(evt)
 }
 
-func (s *dependencyDiscoveryServer) handleUnsubscribe(instName string, d *dependencyDiscoverySession) {
-	s.Lock()
-	defer s.Unlock()
-	// Go runtime never shrink map after elements removal, refer to: https://github.com/golang/go/issues/20135
-	// FIXME: To prevent OOM after long running, we should add some memchainsm recycle the memory.
-	delete(s.subscribers, instName)
-}
-
 func (s *dependencyDiscoveryServer) StreamDependencies(req *api.DependencyDiscoveryRequest, stream api.DiscoveryService_StreamDependenciesServer) error {
 	if err := req.Instance.Validate(); err != nil {
 		return err
@@ -203,9 +187,12 @@ func (s *dependencyDiscoveryServer) StreamDependencies(req *api.DependencyDiscov
 		return fmt.Errorf("instID: %s, already registered", instID)
 	}
 	session := newDependencyDiscoverySession(req.Instance.Id, stream)
-	session.SetUnsubscribeHandler(s.handleUnsubscribe)
 	s.subscribers[req.Instance.Id] = session
 	s.Unlock()
 	session.Serve()
+
+	s.Lock()
+	delete(s.subscribers, req.Instance.Id)
+	s.Unlock()
 	return nil
 }

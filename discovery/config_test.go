@@ -108,16 +108,16 @@ func TestConfigDiscoverySessionSendFail(t *testing.T) {
 	defer ctrl.Finish()
 
 	stream := makeSvcConfigsStream(ctrl)
-	quit := make(chan struct{})
+	streamQuitCh := make(chan struct{})
 	stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(resp *api.SvcConfigDiscoveryResponse) error {
 		// abort the stream on error.
-		close(quit)
+		close(streamQuitCh)
 		return io.ErrShortWrite
 	})
 	stream.EXPECT().Recv().
 		DoAndReturn(func() (*api.SvcConfigDiscoveryRequest, error) {
 			// wait the stream closed
-			<-quit
+			<-streamQuitCh
 			return nil, io.EOF
 		})
 
@@ -133,14 +133,14 @@ func TestConfigDiscoverySessionRecvFail(t *testing.T) {
 	defer ctrl.Finish()
 
 	stream := makeSvcConfigsStream(ctrl)
-	quit := make(chan struct{})
+	streamQuitCh := make(chan struct{})
 	abortStream := func() {
-		close(quit)
+		close(streamQuitCh)
 	}
 	stream.EXPECT().Recv().
 		DoAndReturn(func() (*api.SvcConfigDiscoveryRequest, error) {
 			// wait the stream closed
-			<-quit
+			<-streamQuitCh
 			return nil, io.EOF
 		})
 
@@ -154,9 +154,9 @@ func TestConfigDiscoverySessionCleanSubscriptionOnExit(t *testing.T) {
 	defer ctrl.Finish()
 
 	stream := makeSvcConfigsStream(ctrl)
-	quit := make(chan struct{})
+	streamQuitCh := make(chan struct{})
 	abortStream := func() {
-		close(quit)
+		close(streamQuitCh)
 	}
 	times := 0
 	stream.EXPECT().Recv().
@@ -168,7 +168,7 @@ func TestConfigDiscoverySessionCleanSubscriptionOnExit(t *testing.T) {
 				}, nil
 			}
 			// wait the stream closed
-			<-quit
+			<-streamQuitCh
 			return nil, io.EOF
 		}).Times(2)
 
@@ -194,12 +194,13 @@ func TestConfigDiscoveryServerHandleSubscribe(t *testing.T) {
 	stream := makeSvcConfigsStream(ctrl)
 	session := newConfigDiscoverySession(stream)
 
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Second))
+	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
-	time.Sleep(time.Millisecond * 1500)
 	defer ctl.Stop()
 	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceProxyConfig, "foo", nil))
 	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceProxyConfig, "bar", []byte{0, 0, 0, 0}))
+
+	time.Sleep(time.Millisecond * 10)
 
 	s := newConfigDiscoveryServer(ctl)
 	s.handleSubscribe("foo", session)
@@ -327,12 +328,12 @@ func TestConfigDiscoveryServerStreamSvcConfigs(t *testing.T) {
 	s := newConfigDiscoveryServer(ctl)
 
 	stream := makeSvcConfigsStream(ctrl)
-	quit := make(chan struct{})
+	streamQuitCh := make(chan struct{})
 	abortStream := func() {
-		close(quit)
+		close(streamQuitCh)
 	}
 	stream.EXPECT().Recv().DoAndReturn(func() (*api.SvcConfigDiscoveryRequest, error) {
-		<-quit
+		<-streamQuitCh
 		return nil, io.EOF
 	})
 
