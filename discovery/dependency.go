@@ -172,6 +172,8 @@ func (s *dependencyDiscoveryServer) handleConfigEvent(evt *config.Event) {
 		evt.Config.Type != config.TypeServiceDependency {
 		return
 	}
+	s.RLock()
+	defer s.RUnlock()
 	subscriber, ok := s.subscribers[evt.Config.Key]
 	if !ok {
 		return

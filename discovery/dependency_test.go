@@ -182,7 +182,7 @@ func TestDependenciesDiscoverySessionServeWithRepeat(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	cancel()
 	<-done
-	assert.EqualValues(t, repeatCount-1, errCount)
+	assert.EqualValues(t, repeatCount-1, atomic.LoadInt32(&errCount))
 }
 
 func TestDependenciesDiscoverySessionServe(t *testing.T) {
