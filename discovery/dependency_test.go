@@ -17,8 +17,9 @@ package discovery
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,39 +33,6 @@ import (
 	"github.com/samaritan-proxy/sash/config/memory"
 )
 
-func TestDiffSlice(t *testing.T) {
-	cases := []struct {
-		A, B     []string
-		Add, Del []string
-	}{
-		{
-			A:   []string{},
-			B:   []string{},
-			Add: []string{},
-			Del: []string{},
-		},
-		{
-			A:   nil,
-			B:   nil,
-			Add: []string{},
-			Del: []string{},
-		},
-		{
-			A:   []string{"A", "B"},
-			B:   []string{"B", "C"},
-			Add: []string{"C"},
-			Del: []string{"A"},
-		},
-	}
-	for idx, c := range cases {
-		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			add, del := diffSlice(c.A, c.B)
-			assert.ElementsMatch(t, c.Add, add)
-			assert.ElementsMatch(t, c.Del, del)
-		})
-	}
-}
-
 func makeDependenciesStream(ctrl *gomock.Controller) (*MockDiscoveryService_StreamDependenciesServer, func()) {
 	stream := NewMockDiscoveryService_StreamDependenciesServer(ctrl)
 	addr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
@@ -77,14 +45,12 @@ func makeDependenciesStream(ctrl *gomock.Controller) (*MockDiscoveryService_Stre
 }
 
 func TestDependencyDiscoverySessionBuildRespFromEvt(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	stream, _ := makeDependenciesStream(ctrl)
-	s := newDependencyDiscoverySession("foo", stream)
+	s := newDependencyDiscoveryServer(config.NewController(memory.NewMemStore()))
 
 	cases := []struct {
 		Event    *config.Event
 		LastDeps []string
-		Response *api.DependencyDiscoveryResponse
+		Response *dependencyEvent
 		IsError  bool
 	}{
 		{
@@ -95,11 +61,8 @@ func TestDependencyDiscoverySessionBuildRespFromEvt(t *testing.T) {
 				),
 			),
 			LastDeps: []string{},
-			Response: &api.DependencyDiscoveryResponse{
-				Added:   buildServices("foo", "bar"),
-				Removed: nil,
-			},
-			IsError: false,
+			Response: buildDependencyEvent([]string{"foo", "bar"}, nil),
+			IsError:  false,
 		},
 		{
 			Event: config.NewEvent(
@@ -109,24 +72,19 @@ func TestDependencyDiscoverySessionBuildRespFromEvt(t *testing.T) {
 				),
 			),
 			LastDeps: []string{"1", "3"},
-			Response: &api.DependencyDiscoveryResponse{
-				Added:   buildServices("2"),
-				Removed: buildServices("3"),
-			},
-			IsError: false,
+			Response: buildDependencyEvent([]string{"2"}, []string{"3"}),
+			IsError:  false,
 		},
 		{
 			Event: config.NewEvent(
 				config.EventDelete,
 				config.NewRawConf(
-					config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`[]`)),
+					config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`[]`),
+				),
 			),
 			LastDeps: []string{"foo", "bar"},
-			Response: &api.DependencyDiscoveryResponse{
-				Added:   nil,
-				Removed: buildServices("foo", "bar"),
-			},
-			IsError: false,
+			Response: buildDependencyEvent(nil, []string{"foo", "bar"}),
+			IsError:  false,
 		},
 		{
 			Event: config.NewEvent(
@@ -139,8 +97,8 @@ func TestDependencyDiscoverySessionBuildRespFromEvt(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s.lastDeps = c.LastDeps
-			evt, err := s.buildRespFromEvt(c.Event)
+			s.dependencies["svc"] = c.LastDeps
+			evt, err := s.buildDepEvtFromCfgEvt(c.Event)
 			if c.IsError {
 				assert.Error(t, err)
 				return
@@ -148,73 +106,166 @@ func TestDependencyDiscoverySessionBuildRespFromEvt(t *testing.T) {
 			assert.Equal(t, c.Response, evt)
 		})
 	}
-
 }
 
-func TestDependenciesDiscoverySessionServeWithRepeat(t *testing.T) {
+func TestDependencyDiscoverySessionServe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	var (
 		stream, cancel = makeDependenciesStream(ctrl)
-		ctl            = config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond*100))
-		server         = newDependencyDiscoveryServer(ctl)
-
-		errCount    int32
-		repeatCount = 3
-		done        = make(chan struct{})
+		session        = newDependencyDiscoverySession("inst_0", stream)
+		serveDone      = make(chan struct{})
 	)
+	stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(resp *api.DependencyDiscoveryResponse) error {
+		assert.Equal(t, buildServices("add_1", "add_2"), resp.Added)
+		assert.Equal(t, buildServices("del_1", "del_2"), resp.Removed)
+		return nil
+	})
+	go func() {
+		session.Serve()
+		close(serveDone)
+	}()
 
-	for i := 0; i < repeatCount; i++ {
-		go func() {
-			err := server.StreamDependencies(&api.DependencyDiscoveryRequest{
-				Instance: &common.Instance{
-					Id: "foo",
-				},
-			}, stream)
-			if err != nil {
-				atomic.AddInt32(&errCount, 1)
-				return
-			}
-			close(done)
-		}()
-	}
-	time.Sleep(time.Millisecond)
+	session.SendEvent(buildDependencyEvent([]string{"add_1", "add_2"}, []string{"del_1", "del_2"}))
+	time.Sleep(time.Millisecond * 100)
+
 	cancel()
-	<-done
-	assert.EqualValues(t, repeatCount-1, atomic.LoadInt32(&errCount))
+
+	select {
+	case <-time.NewTicker(time.Second).C:
+		t.Fatal("close timeout")
+	case <-serveDone:
+	}
+}
+
+func TestDependencyDiscoverySessionServeWithError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	var (
+		stream, _ = makeDependenciesStream(ctrl)
+		session   = newDependencyDiscoverySession("inst_0", stream)
+		serveDone = make(chan struct{})
+	)
+	stream.EXPECT().Send(gomock.Any()).Return(io.ErrUnexpectedEOF)
+	go func() {
+		session.Serve()
+		close(serveDone)
+	}()
+
+	session.SendEvent(buildDependencyEvent([]string{"add_1", "add_2"}, []string{"del_1", "del_2"}))
+
+	select {
+	case <-time.NewTicker(time.Second).C:
+		t.Fatal("close timeout")
+	case <-serveDone:
+	}
+}
+
+func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	store := memory.NewMemStore()
+	assert.NoError(t, store.Set(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
+
+	ctl := config.NewController(store, config.Interval(time.Millisecond))
+	assert.NoError(t, ctl.Start())
+	defer ctl.Stop()
+	time.Sleep(time.Millisecond * 10)
+
+	server := newDependencyDiscoveryServer(ctl)
+
+	stream1, cancel1 := makeDependenciesStream(ctrl)
+	stream1.EXPECT().Send(gomock.Any()).Return(nil)
+	stream2, cancel2 := makeDependenciesStream(ctrl)
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := server.StreamDependencies(&api.DependencyDiscoveryRequest{Instance: &common.Instance{
+			Id:     "inst_0",
+			Belong: "svc",
+		}}, stream1)
+		assert.NoError(t, err)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := server.StreamDependencies(&api.DependencyDiscoveryRequest{Instance: &common.Instance{
+			Id:     "inst_1",
+			Belong: "foo",
+		}}, stream2)
+		assert.NoError(t, err)
+	}()
+
+	time.Sleep(time.Millisecond * 30)
+
+	cancel1()
+	cancel2()
+	wg.Wait()
 }
 
 func TestDependenciesDiscoverySessionServe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	stream, cancel := makeDependenciesStream(ctrl)
-	stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(resp *api.DependencyDiscoveryResponse) error {
-		assert.ElementsMatch(t, buildServices("svc1", "svc2"), resp.Added)
-		return nil
-	}).AnyTimes()
-
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond*100))
+	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 10)
+
+	stream1, cancel1 := makeDependenciesStream(ctrl)
+	stream1.EXPECT().Send(gomock.Any()).DoAndReturn(func(resp *api.DependencyDiscoveryResponse) error {
+		assert.Equal(t, buildServices("svc1", "svc2"), resp.Added)
+		return nil
+	})
+
+	stream2, cancel2 := makeDependenciesStream(ctrl)
 
 	server := newDependencyDiscoveryServer(ctl)
-	done := make(chan struct{})
 
-	go func() {
-		err := server.StreamDependencies(&api.DependencyDiscoveryRequest{
+	wg := sync.WaitGroup{}
+
+	cases := []struct {
+		Instance *common.Instance
+		Stream   *MockDiscoveryService_StreamDependenciesServer
+		IsError  bool
+	}{
+		{
 			Instance: &common.Instance{
-				Id: "foo",
+				Id:     "inst1",
+				Belong: "svc",
 			},
-		}, stream)
-		assert.NoError(t, err)
-		close(done)
-	}()
+			Stream:  stream1,
+			IsError: false,
+		},
+		{
+			Instance: &common.Instance{
+				Id: "inst2",
+			},
+			Stream:  stream2,
+			IsError: true,
+		},
+	}
+	for _, c := range cases {
+		wg.Add(1)
+		go func(wg *sync.WaitGroup, instance *common.Instance, stream *MockDiscoveryService_StreamDependenciesServer, isError bool) {
+			defer wg.Done()
+			err := server.StreamDependencies(&api.DependencyDiscoveryRequest{Instance: instance}, stream)
+			assert.Equal(t, isError, err != nil)
+		}(&wg, c.Instance, c.Stream, c.IsError)
+	}
+
 	time.Sleep(time.Millisecond * 100)
-	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceDependency, "foo", []byte(`["svc1", "svc2"]`)))
+	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["svc1", "svc2"]`)))
 	time.Sleep(time.Millisecond * 100)
-	cancel()
-	<-done
+	cancel1()
+	cancel2()
+	wg.Wait()
+
 }

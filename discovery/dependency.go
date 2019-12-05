@@ -29,16 +29,41 @@ import (
 	"github.com/samaritan-proxy/sash/logger"
 )
 
-type dependencyUnsubHandler func(svcName string, session *dependencyDiscoverySession)
+func buildServices(svcNames ...string) (services []*service.Service) {
+	for _, svcName := range svcNames {
+		services = append(services, &service.Service{
+			Name: svcName,
+		})
+	}
+	return
+}
+
+type dependencyEvent struct {
+	Add []*service.Service
+	Del []*service.Service
+}
+
+func buildDependencyEvent(add, del []string) *dependencyEvent {
+	return &dependencyEvent{
+		Add: buildServices(add...),
+		Del: buildServices(del...),
+	}
+}
+
+func unmarshalServiceDeps(b []byte) ([]string, error) {
+	deps := make([]string, 0, 4)
+	if err := json.Unmarshal(b, &deps); err != nil {
+		return nil, err
+	}
+	return deps, nil
+}
 
 type dependencyDiscoverySession struct {
 	instID string
 	stream api.DiscoveryService_StreamDependenciesServer
 	remote *peer.Peer
 
-	eventCh chan *config.Event
-
-	lastDeps []string
+	eventCh chan *dependencyEvent
 
 	quit chan struct{}
 }
@@ -49,64 +74,9 @@ func newDependencyDiscoverySession(instID string, stream api.DiscoveryService_St
 		instID:  instID,
 		stream:  stream,
 		remote:  remote,
-		eventCh: make(chan *config.Event, 16),
+		eventCh: make(chan *dependencyEvent, 16),
 		quit:    make(chan struct{}),
 	}
-}
-
-func diffSlice(a, b []string) (add, del []string) {
-	setA := make(map[string]struct{}, len(add))
-	setB := make(map[string]struct{}, len(del))
-	all := make(map[string]struct{}, len(add)+len(del))
-	for _, ele := range a {
-		setA[ele] = struct{}{}
-		all[ele] = struct{}{}
-	}
-	for _, ele := range b {
-		setB[ele] = struct{}{}
-		all[ele] = struct{}{}
-	}
-	for k := range all {
-		_, inA := setA[k]
-		_, inB := setB[k]
-		switch {
-		case inA && !inB:
-			del = append(del, k)
-		case !inA && inB:
-			add = append(add, k)
-		}
-	}
-	return
-}
-
-func buildServices(svcNames ...string) (services []*service.Service) {
-	for _, svcName := range svcNames {
-		services = append(services, &service.Service{
-			Name: svcName,
-		})
-	}
-	return
-}
-
-func (s *dependencyDiscoverySession) buildRespFromEvt(event *config.Event) (*api.DependencyDiscoveryResponse, error) {
-	deps := make([]string, 0, 4)
-	if err := json.Unmarshal(event.Config.Value, &deps); err != nil {
-		return nil, err
-	}
-	var add, del []string
-	switch event.Type {
-	case config.EventAdd:
-		add = deps
-	case config.EventUpdate:
-		add, del = diffSlice(s.lastDeps, deps)
-	case config.EventDelete:
-		del = s.lastDeps
-	}
-	s.lastDeps = deps
-	return &api.DependencyDiscoveryResponse{
-		Added:   buildServices(add...),
-		Removed: buildServices(del...),
-	}, nil
 }
 
 func (s *dependencyDiscoverySession) Serve() {
@@ -116,46 +86,67 @@ func (s *dependencyDiscoverySession) Serve() {
 	}()
 
 	for {
-		var event *config.Event
 		select {
-		case event = <-s.eventCh:
 		case <-s.stream.Context().Done():
 			return
-		}
-		resp, err := s.buildRespFromEvt(event)
-		if err != nil {
-			logger.Warnf("failed dependency response from config event, err: %v", err)
-			continue
-		}
-		if err := s.stream.Send(resp); err != nil {
-			logger.Warnf("Send to dependency stream %s failed: %v", s.remote.Addr, err)
-			return
+		case event := <-s.eventCh:
+			err := s.stream.Send(&api.DependencyDiscoveryResponse{
+				Added:   event.Add,
+				Removed: event.Del,
+			})
+			if err != nil {
+				logger.Warnf("Send to dependency stream %s failed: %v", s.remote.Addr, err)
+				return
+			}
 		}
 	}
 }
 
-func (s *dependencyDiscoverySession) SendEvent(event *config.Event) {
+func (s *dependencyDiscoverySession) SendEvent(event *dependencyEvent) {
 	select {
 	case s.eventCh <- event:
 	case <-s.quit:
 	}
 }
 
+type dependencyDiscoverySessions map[*dependencyDiscoverySession]interface{}
+
 type dependencyDiscoveryServer struct {
 	sync.RWMutex
 	ctl *config.Controller
 
-	subscribers map[string]*dependencyDiscoverySession
+	dependencies map[string][]string // serviceName, dependencies
+	subscribers  map[string]dependencyDiscoverySessions
 }
 
 func newDependencyDiscoveryServer(ctl *config.Controller) *dependencyDiscoveryServer {
 	s := &dependencyDiscoveryServer{
-		ctl:         ctl,
-		subscribers: make(map[string]*dependencyDiscoverySession),
+		ctl:          ctl,
+		dependencies: make(map[string][]string),
+		subscribers:  make(map[string]dependencyDiscoverySessions),
 	}
 
 	s.ctl.RegisterEventHandler(s.handleConfigEvent)
 	return s
+}
+
+func (s *dependencyDiscoveryServer) buildDepEvtFromCfgEvt(cfgEvt *config.Event) (*dependencyEvent, error) {
+	svcName := cfgEvt.Config.Key
+	deps, err := unmarshalServiceDeps(cfgEvt.Config.Value)
+	if err != nil {
+		return nil, err
+	}
+	var add, del []string
+	switch cfgEvt.Type {
+	case config.EventAdd:
+		add = deps
+	case config.EventUpdate:
+		add, del = diffSlice(s.dependencies[svcName], deps)
+	case config.EventDelete:
+		del = s.dependencies[svcName]
+	}
+	s.dependencies[svcName] = deps
+	return buildDependencyEvent(add, del), nil
 }
 
 func (s *dependencyDiscoveryServer) handleConfigEvent(evt *config.Event) {
@@ -164,13 +155,47 @@ func (s *dependencyDiscoveryServer) handleConfigEvent(evt *config.Event) {
 		evt.Config.Type != config.TypeServiceDependency {
 		return
 	}
-	s.RLock()
-	defer s.RUnlock()
-	subscriber, ok := s.subscribers[evt.Config.Key]
+
+	svcName := evt.Config.Key
+
+	s.Lock()
+	defer s.Unlock()
+	depEvt, err := s.buildDepEvtFromCfgEvt(evt)
+	if err != nil {
+		logger.Warnf("failed to build dependency event of service[%s], err: %v", svcName, err)
+		return
+	}
+	subscribers, ok := s.subscribers[svcName]
 	if !ok {
 		return
 	}
-	subscriber.SendEvent(evt)
+	for subscriber := range subscribers {
+		subscriber.SendEvent(depEvt)
+	}
+}
+
+func (s *dependencyDiscoveryServer) regSession(belongSvc string, session *dependencyDiscoverySession) {
+	s.Lock()
+	defer s.Unlock()
+	subscribers, ok := s.subscribers[belongSvc]
+	if !ok {
+		subscribers = dependencyDiscoverySessions{}
+		s.subscribers[belongSvc] = subscribers
+	}
+	subscribers[session] = struct{}{}
+}
+
+func (s *dependencyDiscoveryServer) unRegSession(belongSvc string, session *dependencyDiscoverySession) {
+	s.Lock()
+	defer s.Unlock()
+	subscribers, ok := s.subscribers[belongSvc]
+	if !ok {
+		return
+	}
+	delete(subscribers, session)
+	if len(subscribers) == 0 {
+		delete(s.subscribers, belongSvc)
+	}
 }
 
 func (s *dependencyDiscoveryServer) StreamDependencies(req *api.DependencyDiscoveryRequest, stream api.DiscoveryService_StreamDependenciesServer) error {
@@ -179,20 +204,25 @@ func (s *dependencyDiscoveryServer) StreamDependencies(req *api.DependencyDiscov
 	}
 
 	instID := req.Instance.Id
+	belongSvc := req.Instance.Belong
 
-	s.Lock()
-	_, ok := s.subscribers[instID]
-	if ok {
-		s.Unlock()
-		return fmt.Errorf("instID: %s, already registered", instID)
+	if len(belongSvc) == 0 {
+		return fmt.Errorf("instID: %s, Belong is null", instID)
 	}
-	session := newDependencyDiscoverySession(req.Instance.Id, stream)
-	s.subscribers[req.Instance.Id] = session
-	s.Unlock()
-	session.Serve()
 
-	s.Lock()
-	delete(s.subscribers, req.Instance.Id)
-	s.Unlock()
+	session := newDependencyDiscoverySession(req.Instance.Id, stream)
+	s.regSession(belongSvc, session)
+	defer s.unRegSession(belongSvc, session)
+
+	if b, err := s.ctl.GetCache(config.NamespaceService, config.TypeServiceDependency, belongSvc); err == nil {
+		if deps, err := unmarshalServiceDeps(b); err == nil {
+			s.Lock()
+			s.dependencies[belongSvc] = deps
+			s.Unlock()
+			session.SendEvent(buildDependencyEvent(deps, nil))
+		}
+	}
+
+	session.Serve()
 	return nil
 }
