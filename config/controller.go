@@ -23,37 +23,28 @@ import (
 	"github.com/cenkalti/backoff/v3"
 
 	"github.com/samaritan-proxy/sash/logger"
+	"github.com/samaritan-proxy/sash/utils"
 )
 
 const (
 	NamespaceService       = "service"
 	TypeServiceProxyConfig = "proxy-config"
-	TypeServiceDependence  = "dependence"
+	TypeServiceDependency  = "dependency"
 )
 
 var InterestedNSAndType = map[string][]string{
-	NamespaceService: {TypeServiceProxyConfig, TypeServiceDependence},
+	NamespaceService: {TypeServiceProxyConfig, TypeServiceDependency},
 }
 
 var (
-	defaultBackoffInitialInterval     = 100 * time.Millisecond
-	defaultBackoffRandomizationFactor = 0.2
-	defaultBackoffMultiplier          = 1.6
-	defaultBackoffMaxInterval         = time.Second
-	defaultBackoffMaxRetries          = 10
+	defaultBackoffInitialInterval            = 100 * time.Millisecond
+	defaultBackoffRandomizationFactor        = 0.2
+	defaultBackoffMultiplier                 = 1.6
+	defaultBackoffMaxInterval                = time.Second
+	defaultBackoffMaxRetries          uint64 = 10
 
 	errCancelled = errors.New("retry is cancelled")
 )
-
-func defaultBackOff() *backoff.ExponentialBackOff {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = defaultBackoffInitialInterval
-	b.RandomizationFactor = defaultBackoffRandomizationFactor
-	b.Multiplier = defaultBackoffMultiplier
-	b.MaxInterval = defaultBackoffMaxInterval
-	b.Reset()
-	return b
-}
 
 type controllerOptions struct {
 	interval time.Duration
@@ -134,8 +125,13 @@ func (c *Controller) trySubscribe(namespace ...string) error {
 }
 
 func (c *Controller) doRetry(fn func() (interface{}, error)) (res interface{}, err error) {
-	b := backoff.WithMaxRetries(defaultBackOff(), uint64(defaultBackoffMaxRetries))
-	b.Reset()
+	b := utils.NewExponentialBackoffBuilder().
+		InitialInterval(defaultBackoffInitialInterval).
+		RandomizationFactor(defaultBackoffRandomizationFactor).
+		Multiplier(defaultBackoffMultiplier).
+		MaxInterval(defaultBackoffMaxInterval).
+		MaxRetries(defaultBackoffMaxRetries).
+		Build()
 	for {
 		res, err = fn()
 		if err == nil {
@@ -203,9 +199,6 @@ func (c *Controller) fetchAll() (*Cache, error) {
 				value, err := c.getValueWithRetry(ns, typ, key)
 				if err != nil {
 					return nil, err
-				}
-				if value == nil {
-					continue
 				}
 				cache.Set(ns, typ, key, value)
 			}
@@ -316,32 +309,22 @@ func (c *Controller) RegisterEventHandler(handler EventHandler) {
 
 // Get return config data by namespace, type and key.
 func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
+	return c.store.Get(namespace, typ, key)
+}
+
+// GetCache return config data by namespace, type and key from cache.
+func (c *Controller) GetCache(namespace, typ, key string) ([]byte, error) {
 	return c.loadCache().Get(namespace, typ, key)
 }
 
 // Set set config data by namespace, type and key.
 func (c *Controller) Set(namespace, typ, key string, value []byte) error {
-	if err := c.store.Set(namespace, typ, key, value); err != nil {
-		return err
-	}
-	cp := c.loadCache().Copy()
-	cp.Set(namespace, typ, key, value)
-	c.storeCache(cp)
-	return nil
+	return c.store.Set(namespace, typ, key, value)
 }
 
 // Del del config data by namespace, type and key.
 func (c *Controller) Del(namespace, typ, key string) error {
-	if err := c.store.Del(namespace, typ, key); err != nil {
-		return err
-	}
-	cp := c.loadCache().Copy()
-	if err := cp.Del(namespace, typ, key); err != nil {
-		c.triggerUpdate()
-		return nil
-	}
-	c.storeCache(cp)
-	return nil
+	return c.store.Del(namespace, typ, key)
 }
 
 // Exist return true if config data is exist.

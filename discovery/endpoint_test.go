@@ -233,7 +233,7 @@ func makeRegistryCache(ctrl *gomock.Controller) *registry.MockCache {
 	return reg
 }
 
-func TestEndpointDiscoveryServerHanldeSubscribe(t *testing.T) {
+func TestEndpointDiscoveryServerHandleSubscribe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -264,7 +264,7 @@ func TestEndpointDiscoveryServerHanldeSubscribe(t *testing.T) {
 	assert.Equal(t, 1, len(session.eventCh))
 }
 
-func TestEndpointDiscoveryServerHanldeUnsubscribe(t *testing.T) {
+func TestEndpointDiscoveryServerHandleUnsubscribe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -442,5 +442,5 @@ func TestEndpointDiscoveryServerStreamSvcEndpoints(t *testing.T) {
 	})
 
 	time.AfterFunc(time.Millisecond*100, abortStream)
-	s.StreamSvcEndpoints(stream)
+	assert.NoError(t, s.StreamSvcEndpoints(stream))
 }
