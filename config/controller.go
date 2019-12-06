@@ -312,7 +312,7 @@ func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
 	return c.store.Get(namespace, typ, key)
 }
 
-// Get return config data by namespace, type and key from cache.
+// GetCache return config data by namespace, type and key from cache.
 func (c *Controller) GetCache(namespace, typ, key string) ([]byte, error) {
 	return c.loadCache().Get(namespace, typ, key)
 }
