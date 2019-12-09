@@ -82,8 +82,8 @@ func (s *Server) Stop() {
 	s.g.Stop()
 }
 
-// StreamSvcs returns all dependencies of the given isntance.
-func (s *Server) StreamSvcs(req *api.SvcDiscoveryRequest, stream api.DiscoveryService_StreamSvcsServer) (err error) {
+// StreamDependencies returns all dependencies of the given isntance.
+func (s *Server) StreamDependencies(req *api.DependencyDiscoveryRequest, stream api.DiscoveryService_StreamDependenciesServer) (err error) {
 	// TODO: implement it
 	return
 }
