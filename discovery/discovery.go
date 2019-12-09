@@ -19,9 +19,11 @@ import (
 	"time"
 
 	"github.com/samaritan-proxy/samaritan-api/go/api"
-	"github.com/samaritan-proxy/sash/registry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+
+	"github.com/samaritan-proxy/sash/config"
+	"github.com/samaritan-proxy/sash/registry"
 )
 
 type serverOptions struct {
@@ -39,22 +41,29 @@ type Server struct {
 	l       net.Listener
 	options *serverOptions
 
-	g   *grpc.Server
+	g *grpc.Server
+
 	eds *endpointDiscoveryServer
+	cds *configDiscoveryServer
+	dds *dependencyDiscoveryServer
 }
 
 // NewServer creates a discovery server.
-func NewServer(l net.Listener, reg registry.Cache, opts ...ServerOption) *Server {
+func NewServer(l net.Listener, reg registry.Cache, ctl *config.Controller, opts ...ServerOption) *Server {
 	o := defaultServerOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	eds := newEndpointDiscoveryServer(reg)
+	cds := newConfigDiscoveryServer(ctl)
+	dds := newDependencyDiscoveryServer(ctl)
 	s := &Server{
 		l:       l,
 		options: o,
 		eds:     eds,
+		cds:     cds,
+		dds:     dds,
 	}
 
 	g := grpc.NewServer(s.grpcOptions()...)
@@ -82,21 +91,19 @@ func (s *Server) Stop() {
 	s.g.Stop()
 }
 
-// StreamDependencies returns all dependencies of the given isntance.
+// StreamDependencies returns all dependencies of the given instance.
 func (s *Server) StreamDependencies(req *api.DependencyDiscoveryRequest, stream api.DiscoveryService_StreamDependenciesServer) (err error) {
-	// TODO: implement it
-	return
+	return s.dds.StreamDependencies(req, stream)
 }
 
 // StreamSvcConfigs receives a stream of service subscription/unsubscription, and responds with a stream
 // of the updated service configs.
 func (s *Server) StreamSvcConfigs(stream api.DiscoveryService_StreamSvcConfigsServer) (err error) {
-	// TODO: implement it
-	return
+	return s.cds.StreamSvcConfigs(stream)
 }
 
 // StreamSvcEndpoints receives a stream of service subscription/unsubscription, and responds with a stream
-// of the changed service ednpoints.
+// of the changed service endpoints.
 func (s *Server) StreamSvcEndpoints(stream api.DiscoveryService_StreamSvcEndpointsServer) (err error) {
 	return s.eds.StreamSvcEndpoints(stream)
 }

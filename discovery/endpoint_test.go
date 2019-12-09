@@ -15,13 +15,13 @@
 package discovery
 
 import (
-	context "context"
+	"context"
 	"io"
 	"net"
 	"testing"
 	"time"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/samaritan-proxy/samaritan-api/go/api"
 	"github.com/samaritan-proxy/samaritan-api/go/common"
 	"github.com/samaritan-proxy/samaritan-api/go/config/service"
