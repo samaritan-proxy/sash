@@ -15,7 +15,7 @@
 package discovery
 
 import (
-	context "context"
+	"context"
 	"log"
 	"net"
 	"testing"
@@ -23,25 +23,29 @@ import (
 	"github.com/samaritan-proxy/samaritan-api/go/api"
 	"github.com/samaritan-proxy/samaritan-api/go/common"
 	"github.com/samaritan-proxy/samaritan-api/go/config/service"
-	"github.com/samaritan-proxy/sash/model"
-	"github.com/samaritan-proxy/sash/registry"
-	"github.com/samaritan-proxy/sash/registry/memory"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+
+	"github.com/samaritan-proxy/sash/config"
+	cfgmem "github.com/samaritan-proxy/sash/config/memory"
+	"github.com/samaritan-proxy/sash/model"
+	"github.com/samaritan-proxy/sash/registry"
+	regmem "github.com/samaritan-proxy/sash/registry/memory"
 )
 
 func TestStreamSvcEndpoints(t *testing.T) {
-	reg := memory.NewRegistry(
+	reg := regmem.NewRegistry(
 		model.NewService("foo", model.NewServiceInstance("127.0.0.1", 8888)),
 	)
 	regCache := registry.NewCache(reg)
+	ctrl := config.NewController(cfgmem.NewMemStore())
 
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	s := NewServer(l, regCache)
+	s := NewServer(l, regCache, ctrl)
 
 	// start cache controller
 	ctx, stopCache := context.WithCancel(context.TODO())

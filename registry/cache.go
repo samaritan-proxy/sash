@@ -20,7 +20,8 @@ import (
 	"sync"
 	"time"
 
-	backoff "github.com/cenkalti/backoff/v3"
+	"github.com/cenkalti/backoff/v3"
+
 	"github.com/samaritan-proxy/sash/logger"
 	"github.com/samaritan-proxy/sash/model"
 )

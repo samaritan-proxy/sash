@@ -21,10 +21,11 @@ import (
 	"testing"
 	"time"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/samaritan-proxy/sash/model"
 	"github.com/samaritan-proxy/sash/registry/memory"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSetSyncFreqOption(t *testing.T) {
