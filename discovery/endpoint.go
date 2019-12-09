@@ -297,7 +297,7 @@ func (s *endpointDiscoveryServer) handleSubscribe(svcName string, c *endpointDis
 func (s *endpointDiscoveryServer) handleUnsubscribe(svcName string, c *endpointDiscoverySession) {
 	s.Lock()
 	defer s.Unlock()
-	// Go runtime never shrink map after elemenets removal, refer to: https://github.com/golang/go/issues/20135
+	// Go runtime never shrink map after elements removal, refer to: https://github.com/golang/go/issues/20135
 	// FIXME: To prevent OOM after long running, we should add some memchainsm recycle the memory.
 	subscribers, ok := s.subscribers[svcName]
 	if !ok {

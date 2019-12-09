@@ -42,21 +42,21 @@ func TestController_FetchAll(t *testing.T) {
 	defer ctrl.Finish()
 
 	s := NewMockStore(ctrl)
-	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependence).Return([]string{"key"}, nil)
+	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependency).Return([]string{"key"}, nil)
 	s.EXPECT().GetKeys(
 		gomock.Not(gomock.Eq(NamespaceService)),
 		gomock.Any(),
 	).Return(nil, ErrNotExist).AnyTimes()
 	s.EXPECT().GetKeys(
 		NamespaceService,
-		gomock.Not(gomock.Eq(TypeServiceDependence)),
+		gomock.Not(gomock.Eq(TypeServiceDependency)),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
+	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil)
 
 	c := NewController(s)
 	all, err := c.fetchAll()
 	assert.NoError(t, err)
-	v, err := all.Get(NamespaceService, TypeServiceDependence, "key")
+	v, err := all.Get(NamespaceService, TypeServiceDependency, "key")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("value"), v)
 }
@@ -139,16 +139,16 @@ func TestController_GetAndExist(t *testing.T) {
 	s := NewMockStore(ctrl)
 	s.EXPECT().Start().Return(nil)
 	s.EXPECT().Stop()
-	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependence).Return([]string{"key"}, nil)
+	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependency).Return([]string{"key"}, nil).AnyTimes()
 	s.EXPECT().GetKeys(
 		gomock.Not(gomock.Eq(NamespaceService)),
 		gomock.Any(),
 	).Return(nil, ErrNotExist).AnyTimes()
 	s.EXPECT().GetKeys(
 		NamespaceService,
-		gomock.Not(gomock.Eq(TypeServiceDependence)),
+		gomock.Not(gomock.Eq(TypeServiceDependency)),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
+	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil).AnyTimes()
 	c := NewController(s)
 	assert.NoError(t, c.Start())
 	// wait Controller init
@@ -163,30 +163,11 @@ func TestController_GetAndExist(t *testing.T) {
 			<-done
 		}, time.Second)
 	}()
-	b, err := c.Get(NamespaceService, TypeServiceDependence, "key")
+	b, err := c.Get(NamespaceService, TypeServiceDependency, "key")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("value"), b)
 
-	assert.True(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
-}
-
-func TestController_GetWithError(t *testing.T) {
-	c := NewController(nil)
-	cache := NewCache()
-	cache.Set("ns", "type", "key", []byte("value"))
-	c.storeCache(cache)
-	t.Run("bad ns", func(t *testing.T) {
-		_, err := c.Get("foo", "type", "key")
-		assert.Equal(t, ErrNotExist, err)
-	})
-	t.Run("bad type", func(t *testing.T) {
-		_, err := c.Get("ns", "foo", "key")
-		assert.Equal(t, ErrNotExist, err)
-	})
-	t.Run("bad key", func(t *testing.T) {
-		_, err := c.Get("ns", "type", "foo")
-		assert.Equal(t, ErrNotExist, err)
-	})
+	assert.True(t, c.Exist(NamespaceService, TypeServiceDependency, "key"))
 }
 
 func TestController_Set(t *testing.T) {
@@ -200,7 +181,7 @@ func TestController_Set(t *testing.T) {
 		gomock.Any(),
 		gomock.Any(),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Set(NamespaceService, TypeServiceDependence, "key", []byte("value")).Return(nil)
+	s.EXPECT().Set(NamespaceService, TypeServiceDependency, "key", []byte("value")).Return(nil)
 	c := NewController(s)
 	assert.NoError(t, c.Start())
 	// wait Controller init
@@ -215,8 +196,7 @@ func TestController_Set(t *testing.T) {
 			<-done
 		}, time.Second)
 	}()
-	assert.NoError(t, c.Set(NamespaceService, TypeServiceDependence, "key", []byte("value")))
-	assert.True(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
+	assert.NoError(t, c.Set(NamespaceService, TypeServiceDependency, "key", []byte("value")))
 }
 
 func TestController_Del(t *testing.T) {
@@ -226,17 +206,17 @@ func TestController_Del(t *testing.T) {
 	s := NewMockStore(ctrl)
 	s.EXPECT().Start().Return(nil)
 	s.EXPECT().Stop()
-	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependence).Return([]string{"key"}, nil)
+	s.EXPECT().GetKeys(NamespaceService, TypeServiceDependency).Return([]string{"key"}, nil)
 	s.EXPECT().GetKeys(
 		gomock.Not(gomock.Eq(NamespaceService)),
 		gomock.Any(),
 	).Return(nil, ErrNotExist).AnyTimes()
 	s.EXPECT().GetKeys(
 		NamespaceService,
-		gomock.Not(gomock.Eq(TypeServiceDependence)),
+		gomock.Not(gomock.Eq(TypeServiceDependency)),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependence, "key").Return([]byte("value"), nil)
-	s.EXPECT().Del(NamespaceService, TypeServiceDependence, "key").Return(nil)
+	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil)
+	s.EXPECT().Del(NamespaceService, TypeServiceDependency, "key").Return(nil)
 	c := NewController(s)
 	assert.NoError(t, c.Start())
 	// wait Controller init
@@ -251,8 +231,7 @@ func TestController_Del(t *testing.T) {
 			<-done
 		}, time.Second)
 	}()
-	assert.NoError(t, c.Del(NamespaceService, TypeServiceDependence, "key"))
-	assert.False(t, c.Exist(NamespaceService, TypeServiceDependence, "key"))
+	assert.NoError(t, c.Del(NamespaceService, TypeServiceDependency, "key"))
 }
 
 func TestController_TriggerUpdate(t *testing.T) {
