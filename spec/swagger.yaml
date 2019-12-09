@@ -1,0 +1,287 @@
+swagger: "2.0"
+info:
+  description: "Api of Sash"
+  version: "1.0.0"
+  title: "Sash"
+  license:
+    name: "Apache 2.0"
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+basePath: "/api"
+tags:
+  - name: "instance"
+    description: "instance info"
+  - name: "dependency"
+    description: "dependency info"
+  - name: "proxy-config"
+    description: "proxy config"
+schemes:
+  - "http"
+paths:
+  /instance:
+    get:
+      tags:
+        - "instance"
+      summary: "list and search all instance"
+      parameters:
+        - name: pageNum
+          type: integer
+          in: query
+          description: "page number"
+        - name: pageSize
+          type: integer
+          in: query
+          description: "page size"
+        - name: belongSvc
+          type: string
+          in: query
+          description: "belong service"
+        - name: instID
+          type: string
+          in: query
+          description: "instance id for search, support regexp"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: "array"
+            items:
+              $ref: '#/definitions/Instance'
+      produces:
+        - "application/json"
+  /instance/{id}:
+    get:
+      tags:
+        - "instance"
+      summary: "get instance by id"
+      parameters:
+        - name: id
+          type: string
+          in: path
+          required: true
+          description: "id of instance to return"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            $ref: '#/definitions/Instance'
+          examples:
+            1.1.1.1_12345:
+              InstanceID: 1.1.1.1_12345
+              Hostname: fc-instance-1
+              IP: 1.1.1.1
+              Port: 12345
+              Version: 1.0.0
+              BelongSvc: fc
+              Dependency: ["fc-redis", "fc-mysql"]
+              Runtime: "uptime: 12d
+                        version: 1.1.0
+                        buid: 2019-08-16_02:54:01@31a0e374aa3109a8ae83029f3079ff592a37f9b9
+                        go_version: 1.13
+                        memory: 100MB"
+        404:
+          description: "instance id not fount"
+  /dependency:
+    get:
+      tags:
+        - "dependency"
+      summary: "list and search all dependency config"
+      parameters:
+        - name: service
+          type: string
+          in: query
+          description: "service name for search, support regexp"
+        - name: pageNum
+          type: integer
+          in: query
+          description: "page number"
+        - name: pageSize
+          type: integer
+          in: query
+          description: "page size"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Dependency'
+    post:
+      tags:
+        - "dependency"
+      summary: "add a dependency config"
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/Dependency'
+      responses:
+        200:
+          description: OK
+    put:
+      tags:
+        - "dependency"
+      summary: "update a dependency config"
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/Dependency'
+      responses:
+        200:
+          description: OK
+  /dependency/{service}:
+    get:
+      tags:
+        - "dependency"
+      summary: "get dependency config by service"
+      parameters:
+        - name: service
+          type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            $ref: '#/definitions/Dependency'
+        404:
+          description: service not found
+  /proxy-config:
+    get:
+      tags:
+        - "proxy-config"
+      summary: "list and search all proxy config"
+      parameters:
+        - name: service
+          type: string
+          in: query
+          description: "service name for search, support regexp"
+        - name: pageNum
+          type: integer
+          in: query
+          description: "page number"
+        - name: pageSize
+          type: integer
+          in: query
+          description: "page size"
+        - name: protocol
+          type: string
+          in: query
+          description: "protocol type"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/ProxyConfig'
+    post:
+      tags:
+        - "proxy-config"
+      summary: "add a new proxy config"
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ProxyConfig'
+      responses:
+        200:
+          description: OK
+    put:
+      tags:
+        - "proxy-config"
+      summary: "update proxy config"
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ProxyConfig'
+      responses:
+        200:
+          description: OK
+  /proxy-config/{service}:
+    get:
+      tags:
+        - "proxy-config"
+      summary: "get proxy config by service"
+      parameters:
+        - name: service
+          type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            $ref: '#/definitions/ProxyConfig'
+        404:
+          description: proxy config not found
+    delete:
+      tags:
+        - "proxy-config"
+      summary: "delete proxy config by service"
+      parameters:
+        - name: service
+          type: string
+          in: path
+          required: true
+      responses:
+        200:
+          description: OK
+definitions:
+  Instance:
+    type: object
+    properties:
+      InstanceID:
+        type: string
+      Hostname:
+        type: string
+      IP:
+        type: string
+      Port:
+        type: number
+      Version:
+        type: string
+      BelongService:
+        type: string
+      Dependencies:
+        $ref: '#/definitions/Dependencies'
+      Runtime:
+        type: string
+  Dependency:
+    type: object
+    properties:
+      ServiceName:
+        type: string
+      CreateTime:
+        type: string
+        format: 'date-time'
+      UpdateTime:
+        type: string
+        format: 'date-time'
+      Dependencies:
+        $ref: '#/definitions/Dependencies'
+  ProxyConfig:
+    type: object
+    properties:
+      ServiceName:
+        type: string
+      CreateTime:
+        type: string
+        format: 'date-time'
+      UpdateTime:
+        type: string
+        format: 'date-time'
+      Config:
+        type: object
+  Dependencies:
+    type: array
+    items:
+      type: string
