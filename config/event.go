@@ -24,10 +24,29 @@ const (
 	EventDelete
 )
 
-// Event represents a config event.
+// Event represents a raw config event.
 type Event struct {
 	Type   EventType
 	Config *RawConf
+}
+
+// DependencyEvent represents a dependency config event.
+type DependencyEvent struct {
+	ServiceName string
+	Add         []string
+	Del         []string
+}
+
+// InstanceEvent represents an instance config event.
+type InstanceEvent struct {
+	Type     EventType
+	Instance *Instance
+}
+
+// ProxyConfigEvent represents an event config event.
+type ProxyConfigEvent struct {
+	Type        EventType
+	ProxyConfig *ProxyConfig
 }
 
 // NewEvent return a new Event.
@@ -41,4 +60,10 @@ func NewEvent(typ EventType, config *RawConf) *Event {
 type (
 	// EventHandler is used to handle the event.
 	EventHandler func(event *Event)
+	// DependencyEventHandler is used to handle the dependency event.
+	DependencyEventHandler func(event *DependencyEvent)
+	// InstanceEventHandler is used to handle the instance event.
+	InstanceEventHandler func(event *InstanceEvent)
+	// ProxyConfigEventHandler is used to handle proxy config event.
+	ProxyConfigEventHandler func(event *ProxyConfigEvent)
 )

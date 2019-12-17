@@ -17,7 +17,6 @@ package discovery
 //go:generate mockgen -package $GOPACKAGE -self_package github.com/samaritan-proxy/sash/$GOPACKAGE --destination ./mock_dependency_test.go github.com/samaritan-proxy/samaritan-api/go/api DiscoveryService_StreamDependenciesServer
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -38,32 +37,12 @@ func buildServices(svcNames ...string) (services []*service.Service) {
 	return
 }
 
-type dependencyEvent struct {
-	Add []*service.Service
-	Del []*service.Service
-}
-
-func buildDependencyEvent(add, del []string) *dependencyEvent {
-	return &dependencyEvent{
-		Add: buildServices(add...),
-		Del: buildServices(del...),
-	}
-}
-
-func unmarshalServiceDeps(b []byte) ([]string, error) {
-	deps := make([]string, 0, 4)
-	if err := json.Unmarshal(b, &deps); err != nil {
-		return nil, err
-	}
-	return deps, nil
-}
-
 type dependencyDiscoverySession struct {
 	instID string
 	stream api.DiscoveryService_StreamDependenciesServer
 	remote *peer.Peer
 
-	eventCh chan *dependencyEvent
+	eventCh chan *config.DependencyEvent
 
 	quit chan struct{}
 }
@@ -74,7 +53,7 @@ func newDependencyDiscoverySession(instID string, stream api.DiscoveryService_St
 		instID:  instID,
 		stream:  stream,
 		remote:  remote,
-		eventCh: make(chan *dependencyEvent, 16),
+		eventCh: make(chan *config.DependencyEvent, 16),
 		quit:    make(chan struct{}),
 	}
 }
@@ -91,8 +70,8 @@ func (s *dependencyDiscoverySession) Serve() {
 			return
 		case event := <-s.eventCh:
 			err := s.stream.Send(&api.DependencyDiscoveryResponse{
-				Added:   event.Add,
-				Removed: event.Del,
+				Added:   buildServices(event.Add...),
+				Removed: buildServices(event.Del...),
 			})
 			if err != nil {
 				logger.Warnf("Send to dependency stream %s failed: %v", s.remote.Addr, err)
@@ -102,7 +81,7 @@ func (s *dependencyDiscoverySession) Serve() {
 	}
 }
 
-func (s *dependencyDiscoverySession) SendEvent(event *dependencyEvent) {
+func (s *dependencyDiscoverySession) SendEvent(event *config.DependencyEvent) {
 	select {
 	case s.eventCh <- event:
 	case <-s.quit:
@@ -113,7 +92,7 @@ type dependencyDiscoverySessions map[*dependencyDiscoverySession]interface{}
 
 type dependencyDiscoveryServer struct {
 	sync.RWMutex
-	ctl *config.Controller
+	depCtl *config.DependenciesController
 
 	dependencies map[string][]string // serviceName, dependencies
 	subscribers  map[string]dependencyDiscoverySessions
@@ -121,56 +100,20 @@ type dependencyDiscoveryServer struct {
 
 func newDependencyDiscoveryServer(ctl *config.Controller) *dependencyDiscoveryServer {
 	s := &dependencyDiscoveryServer{
-		ctl:          ctl,
+		depCtl:       ctl.Dependencies(),
 		dependencies: make(map[string][]string),
 		subscribers:  make(map[string]dependencyDiscoverySessions),
 	}
 
-	s.ctl.RegisterEventHandler(s.handleConfigEvent)
+	s.depCtl.RegisterEventHandler(s.handleConfigEvent)
 	return s
 }
 
-func (s *dependencyDiscoveryServer) buildDepEvtFromCfgEvt(cfgEvt *config.Event) (*dependencyEvent, error) {
-	svcName := cfgEvt.Config.Key
-	deps, err := unmarshalServiceDeps(cfgEvt.Config.Value)
-	if err != nil {
-		return nil, err
-	}
-	var add, del []string
-	switch cfgEvt.Type {
-	case config.EventAdd:
-		add = deps
-	case config.EventUpdate:
-		add, del = diffSlice(s.dependencies[svcName], deps)
-	case config.EventDelete:
-		del = s.dependencies[svcName]
-	}
-	s.dependencies[svcName] = deps
-	return buildDependencyEvent(add, del), nil
-}
-
-func (s *dependencyDiscoveryServer) handleConfigEvent(evt *config.Event) {
-	if evt == nil ||
-		evt.Config.Namespace != config.NamespaceService ||
-		evt.Config.Type != config.TypeServiceDependency {
-		return
-	}
-
-	svcName := evt.Config.Key
-
+func (s *dependencyDiscoveryServer) handleConfigEvent(evt *config.DependencyEvent) {
 	s.Lock()
 	defer s.Unlock()
-	depEvt, err := s.buildDepEvtFromCfgEvt(evt)
-	if err != nil {
-		logger.Warnf("failed to build dependency event of service[%s], err: %v", svcName, err)
-		return
-	}
-	subscribers, ok := s.subscribers[svcName]
-	if !ok {
-		return
-	}
-	for subscriber := range subscribers {
-		subscriber.SendEvent(depEvt)
+	for subscriber := range s.subscribers[evt.ServiceName] {
+		subscriber.SendEvent(evt)
 	}
 }
 
@@ -214,15 +157,12 @@ func (s *dependencyDiscoveryServer) StreamDependencies(req *api.DependencyDiscov
 	s.regSession(belongSvc, session)
 	defer s.unRegSession(belongSvc, session)
 
-	if b, err := s.ctl.GetCache(config.NamespaceService, config.TypeServiceDependency, belongSvc); err == nil {
-		if deps, err := unmarshalServiceDeps(b); err == nil {
-			s.Lock()
-			s.dependencies[belongSvc] = deps
-			s.Unlock()
-			session.SendEvent(buildDependencyEvent(deps, nil))
-		}
+	if dep, err := s.depCtl.GetCache(belongSvc); err == nil {
+		session.SendEvent(&config.DependencyEvent{
+			ServiceName: dep.ServiceName,
+			Add:         dep.Dependencies,
+		})
 	}
-
 	session.Serve()
 	return nil
 }

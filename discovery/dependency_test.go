@@ -16,7 +16,6 @@ package discovery
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"sync"
@@ -44,70 +43,6 @@ func makeDependenciesStream(ctrl *gomock.Controller) (*MockDiscoveryService_Stre
 	return stream, cancel
 }
 
-func TestDependencyDiscoverySessionBuildRespFromEvt(t *testing.T) {
-	s := newDependencyDiscoveryServer(config.NewController(memory.NewMemStore()))
-
-	cases := []struct {
-		Event    *config.Event
-		LastDeps []string
-		Response *dependencyEvent
-		IsError  bool
-	}{
-		{
-			Event: config.NewEvent(
-				config.EventAdd,
-				config.NewRawConf(
-					config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["foo", "bar"]`),
-				),
-			),
-			LastDeps: []string{},
-			Response: buildDependencyEvent([]string{"foo", "bar"}, nil),
-			IsError:  false,
-		},
-		{
-			Event: config.NewEvent(
-				config.EventUpdate,
-				config.NewRawConf(
-					config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["1", "2"]`),
-				),
-			),
-			LastDeps: []string{"1", "3"},
-			Response: buildDependencyEvent([]string{"2"}, []string{"3"}),
-			IsError:  false,
-		},
-		{
-			Event: config.NewEvent(
-				config.EventDelete,
-				config.NewRawConf(
-					config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`[]`),
-				),
-			),
-			LastDeps: []string{"foo", "bar"},
-			Response: buildDependencyEvent(nil, []string{"foo", "bar"}),
-			IsError:  false,
-		},
-		{
-			Event: config.NewEvent(
-				config.EventAdd,
-				config.NewRawConf(
-					config.NamespaceService, config.TypeServiceDependency, "svc", nil),
-			),
-			IsError: true,
-		},
-	}
-	for idx, c := range cases {
-		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s.dependencies["svc"] = c.LastDeps
-			evt, err := s.buildDepEvtFromCfgEvt(c.Event)
-			if c.IsError {
-				assert.Error(t, err)
-				return
-			}
-			assert.Equal(t, c.Response, evt)
-		})
-	}
-}
-
 func TestDependencyDiscoverySessionServe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -127,7 +62,11 @@ func TestDependencyDiscoverySessionServe(t *testing.T) {
 		close(serveDone)
 	}()
 
-	session.SendEvent(buildDependencyEvent([]string{"add_1", "add_2"}, []string{"del_1", "del_2"}))
+	session.SendEvent(&config.DependencyEvent{
+		ServiceName: "inst_0",
+		Add:         []string{"add_1", "add_2"},
+		Del:         []string{"del_1", "del_2"},
+	})
 	time.Sleep(time.Millisecond * 100)
 
 	cancel()
@@ -154,7 +93,11 @@ func TestDependencyDiscoverySessionServeWithError(t *testing.T) {
 		close(serveDone)
 	}()
 
-	session.SendEvent(buildDependencyEvent([]string{"add_1", "add_2"}, []string{"del_1", "del_2"}))
+	session.SendEvent(&config.DependencyEvent{
+		ServiceName: "inst_0",
+		Add:         []string{"add_1", "add_2"},
+		Del:         []string{"del_1", "del_2"},
+	})
 
 	select {
 	case <-time.NewTicker(time.Second).C:
@@ -168,12 +111,10 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 	defer ctrl.Finish()
 
 	store := memory.NewMemStore()
-	assert.NoError(t, store.Set(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
 
 	ctl := config.NewController(store, config.Interval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
-	time.Sleep(time.Millisecond * 10)
 
 	server := newDependencyDiscoveryServer(ctl)
 
@@ -202,6 +143,8 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 		}}, stream2)
 		assert.NoError(t, err)
 	}()
+
+	assert.NoError(t, store.Set(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
 
 	time.Sleep(time.Millisecond * 30)
 

@@ -15,13 +15,71 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
+
+func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Dependencies, configs ProxyConfigs, instances Instances) *MockStore {
+	lock := new(sync.RWMutex)
+	cache := NewCache()
+	for _, item := range dependencies {
+		b, err := json.Marshal(item.Dependencies)
+		assert.NoError(t, err)
+		cache.Set(NamespaceService, TypeServiceDependency, item.ServiceName, b)
+	}
+	for _, item := range configs {
+		var b []byte
+		if item.Config != nil {
+			_b, err := item.Config.Marshal()
+			assert.NoError(t, err)
+			b = _b
+		}
+		cache.Set(NamespaceService, TypeServiceProxyConfig, item.ServiceName, b)
+	}
+	for _, item := range instances {
+		b, err := json.Marshal(item)
+		assert.NoError(t, err)
+		cache.Set(NamespaceSamaritan, TypeSamaritanInstance, item.ID, b)
+	}
+
+	store := NewMockStore(mockCtl)
+	store.EXPECT().Start().Return(nil).AnyTimes()
+	store.EXPECT().Stop().AnyTimes()
+	store.EXPECT().GetKeys(gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ string) ([]string, error) {
+		lock.RLock()
+		defer lock.RUnlock()
+		return cache.Keys(ns, typ)
+	}).AnyTimes()
+	store.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) ([]byte, error) {
+		lock.RLock()
+		defer lock.RUnlock()
+		return cache.Get(ns, typ, key)
+	}).AnyTimes()
+	store.EXPECT().Exist(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) bool {
+		lock.RLock()
+		defer lock.RUnlock()
+		_, err := cache.Get(ns, typ, key)
+		return err == nil
+	}).AnyTimes()
+	store.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string, value []byte) error {
+		lock.Lock()
+		defer lock.Unlock()
+		cache.Set(ns, typ, key, value)
+		return nil
+	}).AnyTimes()
+	store.EXPECT().Del(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) error {
+		lock.Lock()
+		defer lock.Unlock()
+		return cache.Del(ns, typ, key)
+	}).AnyTimes()
+	return store
+}
 
 func assertNotTimeout(t *testing.T, fn func(), timeout time.Duration) {
 	timer := time.NewTimer(timeout)
@@ -249,7 +307,7 @@ func TestController_RegisterEventHandler(t *testing.T) {
 	c := NewController(nil)
 	assert.Empty(t, c.evtHdls)
 	c.RegisterEventHandler(func(event *Event) {})
-	assert.Len(t, c.evtHdls, 1)
+	assert.Len(t, c.loadEvtHdls(), 1)
 }
 
 func TestController_Trigger(t *testing.T) {

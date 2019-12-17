@@ -89,3 +89,52 @@ func TestRawConf_Equal(t *testing.T) {
 		})
 	}
 }
+
+func TestRawConf_Copy(t *testing.T) {
+	cfg := &RawConf{
+		Namespace: "ns",
+		Type:      "type",
+		Key:       "key",
+		Value:     []byte("value"),
+	}
+	cfgCopy := cfg.Copy()
+	assert.False(t, cfg == cfgCopy)
+	assert.Equal(t, cfg, cfgCopy)
+}
+
+func TestCache_SetAndDel(t *testing.T) {
+	c := NewCache()
+	c.Set("ns", "type", "key", []byte("value"))
+
+	t.Run("get:not exist key", func(t *testing.T) {
+		_, err := c.Get("ns", "type", "foo")
+		assert.Equal(t, ErrNotExist, err)
+	})
+
+	t.Run("get:exist key", func(t *testing.T) {
+		b, err := c.Get("ns", "type", "key")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("value"), b)
+	})
+
+	t.Run("del:not exist key", func(t *testing.T) {
+		assert.Equal(t, ErrNotExist, c.Del("ns", "type", "foo"))
+	})
+
+	t.Run("del:exist key", func(t *testing.T) {
+		assert.Equal(t, ErrNotExist, c.Del("ns", "type", "foo"))
+		assert.NoError(t, c.Del("ns", "type", "key"))
+		_, err := c.Get("ns", "type", "key")
+		assert.Equal(t, ErrNotExist, err)
+	})
+}
+
+func TestCache_Copy(t *testing.T) {
+	c := NewCache()
+	c.Set("ns1", "type1", "key1", []byte("value"))
+	c.Set("ns2", "type2", "key1", []byte("value"))
+	c.Set("ns1", "type1", "key2", []byte("value"))
+	cacheCopy := c.Copy()
+	assert.False(t, c == cacheCopy)
+	assert.Equal(t, c, cacheCopy)
+}
