@@ -197,7 +197,8 @@ func (c *DependenciesController) handleRawEvent(event *Event) {
 			delete(c.dependencies, svcName)
 		}()
 	case EventUpdate:
-		var before, after, incr, decr []string = nil, rawDeps, nil, nil
+		var before, after, incr, decr []string
+		after = rawDeps
 		if dep, ok := c.dependencies[svcName]; ok && dep != nil {
 			before = dep.Dependencies
 		}
