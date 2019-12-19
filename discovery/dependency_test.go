@@ -144,7 +144,7 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	assert.NoError(t, store.Set(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
+	assert.NoError(t, store.Add(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
 
 	time.Sleep(time.Millisecond * 30)
 
@@ -205,7 +205,7 @@ func TestDependenciesDiscoverySessionServe(t *testing.T) {
 	}
 
 	time.Sleep(time.Millisecond * 100)
-	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["svc1", "svc2"]`)))
+	assert.NoError(t, ctl.Add(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["svc1", "svc2"]`)))
 	time.Sleep(time.Millisecond * 100)
 	cancel1()
 	cancel2()

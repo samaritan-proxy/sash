@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/samaritan-proxy/sash/config"
-	"github.com/samaritan-proxy/sash/config/memory"
+	cfgmem "github.com/samaritan-proxy/sash/config/memory"
 	"github.com/samaritan-proxy/sash/registry"
+	regmem "github.com/samaritan-proxy/sash/registry/memory"
 )
 
-func newTestServer(t *testing.T, mockCtl *gomock.Controller, opts ...ServerOption) *Server {
-	reg := registry.NewMockCache(mockCtl)
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond))
+func newTestServer(t *testing.T, opts ...ServerOption) *Server {
+	reg := registry.NewCache(regmem.NewRegistry())
+	ctl := config.NewController(cfgmem.NewMemStore(), config.Interval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
-	return New(reg, ctl, opts...)
+	return New("127.0.0.1:18882", reg, ctl, opts...)
 }
 
 func testHandler(req *http.Request, server *Server) *httptest.ResponseRecorder {
@@ -42,12 +42,6 @@ func assertDoNotTimeout(t *testing.T, fn func(), d time.Duration) {
 	case <-timer.C:
 		t.Fatal("timeout")
 	}
-}
-
-func TestAddr(t *testing.T) {
-	options := new(serverOptions)
-	Addr(":80")(options)
-	assert.Equal(t, ":80", options.Addr)
 }
 
 func TestReadTimeout(t *testing.T) {
@@ -75,10 +69,7 @@ func TestIdleTimeout(t *testing.T) {
 }
 
 func TestServer(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl, Addr("127.0.0.1:18882"))
+	s := newTestServer(t)
 
 	assert.NoError(t, s.Start())
 

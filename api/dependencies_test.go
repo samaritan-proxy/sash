@@ -23,16 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/samaritan-proxy/sash/config"
 )
 
 func TestHandleGetAllDependencies(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
 	cases := []struct {
 		Deps    []*config.Dependency
 		ReqURI  string
@@ -122,10 +118,10 @@ func TestHandleGetAllDependencies(t *testing.T) {
 
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s := newTestServer(t, ctl)
+			s := newTestServer(t)
 			defer s.rawCtl.Stop()
 			for _, dep := range c.Deps {
-				assert.NoError(t, s.depsCtl.Set(dep))
+				assert.NoError(t, s.depsCtl.Add(dep))
 			}
 			time.Sleep(time.Millisecond * 100)
 			resp := testHandler(httptest.NewRequest(http.MethodGet, c.ReqURI, nil), s)
@@ -140,9 +136,6 @@ func TestHandleGetAllDependencies(t *testing.T) {
 }
 
 func TestHandleAddDependency(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
 	cases := []struct {
 		Body       interface{} // can be bytes or struct
 		StatusCode int
@@ -168,7 +161,7 @@ func TestHandleAddDependency(t *testing.T) {
 
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s := newTestServer(t, ctl)
+			s := newTestServer(t)
 			defer s.rawCtl.Stop()
 
 			b, ok := c.Body.([]byte)
@@ -184,17 +177,14 @@ func TestHandleAddDependency(t *testing.T) {
 }
 
 func TestHandleGetDependency(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.depsCtl.Set(&config.Dependency{
+	assert.NoError(t, s.depsCtl.Add(&config.Dependency{
 		ServiceName:  "svc_1",
 		Dependencies: []string{"dep_1", "dep_2"},
 	}))
-	assert.NoError(t, s.rawCtl.Set(config.NamespaceService, config.TypeServiceDependency, "svc_foo", []byte{0}))
+	assert.NoError(t, s.rawCtl.Add(config.NamespaceService, config.TypeServiceDependency, "svc_foo", []byte{0}))
 
 	time.Sleep(time.Millisecond * 10)
 
@@ -221,13 +211,10 @@ func TestHandleGetDependency(t *testing.T) {
 }
 
 func TestHandleUpdateDependency(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.depsCtl.Set(&config.Dependency{
+	assert.NoError(t, s.depsCtl.Add(&config.Dependency{
 		ServiceName:  "svc_1",
 		Dependencies: []string{"dep_1", "dep_2"},
 	}))
@@ -263,13 +250,10 @@ func TestHandleUpdateDependency(t *testing.T) {
 }
 
 func TestHandleDeleteDependency(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.depsCtl.Set(&config.Dependency{
+	assert.NoError(t, s.depsCtl.Add(&config.Dependency{
 		ServiceName:  "svc_1",
 		Dependencies: []string{"dep_1", "dep_2"},
 	}))

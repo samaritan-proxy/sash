@@ -122,7 +122,7 @@ func (c *DependenciesController) GetCache(svc string) (*Dependency, error) {
 	return dep, nil
 }
 
-func (c *DependenciesController) Set(dependency *Dependency) error {
+func (c *DependenciesController) Add(dependency *Dependency) error {
 	if dependency == nil {
 		return nil
 	}
@@ -133,7 +133,21 @@ func (c *DependenciesController) Set(dependency *Dependency) error {
 	if err != nil {
 		return err
 	}
-	return c.ctl.Set(c.getNamespace(), c.getType(), dependency.ServiceName, b)
+	return c.ctl.Add(c.getNamespace(), c.getType(), dependency.ServiceName, b)
+}
+
+func (c *DependenciesController) Update(dependency *Dependency) error {
+	if dependency == nil {
+		return nil
+	}
+	if err := dependency.Verify(); err != nil {
+		return err
+	}
+	b, err := c.marshallDependency(dependency.Dependencies)
+	if err != nil {
+		return err
+	}
+	return c.ctl.Update(c.getNamespace(), c.getType(), dependency.ServiceName, b)
 }
 
 func (c *DependenciesController) Exist(svc string) bool {

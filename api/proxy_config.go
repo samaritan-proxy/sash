@@ -16,7 +16,10 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	"github.com/samaritan-proxy/sash/config"
 )
@@ -46,12 +49,15 @@ func (s *Server) handleAddProxyConfig(w http.ResponseWriter, r *http.Request) {
 	if err = cfg.Verify(); err != nil {
 		goto BadRequest
 	}
-	if err = s.proxyCfgCtl.Set(cfg); err != nil {
+	switch err = s.proxyCfgCtl.Add(cfg); err {
+	case nil:
+		writeMsg(w, http.StatusOK, "OK")
+		return
+	case config.ErrExist:
+		goto BadRequest
+	default:
 		goto InternalError
 	}
-	writeMsg(w, http.StatusOK, "OK")
-	return
-
 BadRequest:
 	writeMsg(w, http.StatusBadRequest, err.Error())
 InternalError:
@@ -59,34 +65,47 @@ InternalError:
 }
 
 func (s *Server) handleGetProxyConfig(w http.ResponseWriter, r *http.Request) {
-	service, ok := s.getServiceAndAssertExist(w, r, s.proxyCfgCtl.Exist)
-	if !ok {
-		return
-	}
+	service := mux.Vars(r)[paramService]
 	cfg, err := s.proxyCfgCtl.Get(service)
-	if err != nil {
+	switch err {
+	case nil:
+		writeJSON(w, cfg)
+	case config.ErrNotExist:
+		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
+	default:
 		writeMsg(w, http.StatusInternalServerError, err.Error())
-		return
 	}
-	writeJSON(w, cfg)
 }
 
 func (s *Server) handleUpdateProxyConfig(w http.ResponseWriter, r *http.Request) {
-	_, ok := s.getServiceAndAssertExist(w, r, s.proxyCfgCtl.Exist)
-	if !ok {
+	var (
+		service = mux.Vars(r)[paramService]
+		cfg     = new(config.ProxyConfig)
+		err     = json.NewDecoder(r.Body).Decode(&cfg)
+	)
+	if err != nil {
+		writeMsg(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.handleAddProxyConfig(w, r)
+	cfg.ServiceName = service
+	switch err = s.proxyCfgCtl.Update(cfg); err {
+	case nil:
+		writeMsg(w, http.StatusOK, "OK")
+	case config.ErrNotExist:
+		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
+	default:
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+	}
 }
 
 func (s *Server) handleDeleteProxyConfig(w http.ResponseWriter, r *http.Request) {
-	service, ok := s.getServiceAndAssertExist(w, r, s.proxyCfgCtl.Exist)
-	if !ok {
-		return
-	}
-	if err := s.proxyCfgCtl.Delete(service); err != nil {
+	service := mux.Vars(r)[paramService]
+	switch err := s.proxyCfgCtl.Delete(service); err {
+	case nil:
+		writeMsg(w, http.StatusOK, "OK")
+	case config.ErrNotExist:
+		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
+	default:
 		writeMsg(w, http.StatusInternalServerError, err.Error())
-		return
 	}
-	writeMsg(w, http.StatusOK, "OK")
 }

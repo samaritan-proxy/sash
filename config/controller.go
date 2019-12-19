@@ -334,9 +334,14 @@ func (c *Controller) GetCache(namespace, typ, key string) ([]byte, error) {
 	return c.loadCache().Get(namespace, typ, key)
 }
 
-// Set set config data by namespace, type and key.
-func (c *Controller) Set(namespace, typ, key string, value []byte) error {
-	return c.store.Set(namespace, typ, key, value)
+// Add add config data by namespace, type and key.
+func (c *Controller) Add(namespace, typ, key string, value []byte) error {
+	return c.store.Add(namespace, typ, key, value)
+}
+
+// Update update config data by namespace, type and key.
+func (c *Controller) Update(namespace, typ, key string, value []byte) error {
+	return c.store.Update(namespace, typ, key, value)
 }
 
 // Del del config data by namespace, type and key.

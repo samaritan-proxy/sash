@@ -47,18 +47,32 @@ func (mr *MockStoreMockRecorder) Get(namespace, typ, key interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStore)(nil).Get), namespace, typ, key)
 }
 
-// Set mocks base method
-func (m *MockStore) Set(namespace, typ, key string, value []byte) error {
+// Add mocks base method
+func (m *MockStore) Add(namespace, typ, key string, value []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", namespace, typ, key, value)
+	ret := m.ctrl.Call(m, "Add", namespace, typ, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Set indicates an expected call of Set
-func (mr *MockStoreMockRecorder) Set(namespace, typ, key, value interface{}) *gomock.Call {
+// Add indicates an expected call of Add
+func (mr *MockStoreMockRecorder) Add(namespace, typ, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockStore)(nil).Set), namespace, typ, key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStore)(nil).Add), namespace, typ, key, value)
+}
+
+// Update mocks base method
+func (m *MockStore) Update(namespace, typ, key string, value []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", namespace, typ, key, value)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update
+func (mr *MockStoreMockRecorder) Update(namespace, typ, key, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockStore)(nil).Update), namespace, typ, key, value)
 }
 
 // Del mocks base method
@@ -168,18 +182,32 @@ func (mr *MockSubscribableStoreMockRecorder) Get(namespace, typ, key interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSubscribableStore)(nil).Get), namespace, typ, key)
 }
 
-// Set mocks base method
-func (m *MockSubscribableStore) Set(namespace, typ, key string, value []byte) error {
+// Add mocks base method
+func (m *MockSubscribableStore) Add(namespace, typ, key string, value []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Set", namespace, typ, key, value)
+	ret := m.ctrl.Call(m, "Add", namespace, typ, key, value)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Set indicates an expected call of Set
-func (mr *MockSubscribableStoreMockRecorder) Set(namespace, typ, key, value interface{}) *gomock.Call {
+// Add indicates an expected call of Add
+func (mr *MockSubscribableStoreMockRecorder) Add(namespace, typ, key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockSubscribableStore)(nil).Set), namespace, typ, key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockSubscribableStore)(nil).Add), namespace, typ, key, value)
+}
+
+// Update mocks base method
+func (m *MockSubscribableStore) Update(namespace, typ, key string, value []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", namespace, typ, key, value)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update
+func (mr *MockSubscribableStoreMockRecorder) Update(namespace, typ, key, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockSubscribableStore)(nil).Update), namespace, typ, key, value)
 }
 
 // Del mocks base method

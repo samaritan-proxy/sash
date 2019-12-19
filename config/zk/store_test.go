@@ -71,7 +71,7 @@ func TestStore_Set(t *testing.T) {
 	conn.EXPECT().CreateRecursively("/configs/ns/type/key", []byte("value")).Return(nil)
 	s, err := NewWithConn(conn, "/configs")
 	assert.NoError(t, err)
-	assert.NoError(t, s.Set("ns", "type", "key", []byte("value")))
+	assert.NoError(t, s.Add("ns", "type", "key", []byte("value")))
 }
 
 func TestStore_Del(t *testing.T) {

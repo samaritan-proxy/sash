@@ -178,26 +178,64 @@ func TestProxyConfigsController_GetCache(t *testing.T) {
 	})
 }
 
-func TestProxyConfigsController_Set(t *testing.T) {
+func TestProxyConfigsController_Add(t *testing.T) {
 	mockCtl := gomock.NewController(t)
 	defer mockCtl.Finish()
 
-	ctl, cancel := genProxyConfigsController(t, mockCtl)
+	ctl, cancel := genProxyConfigsController(t, mockCtl, &ProxyConfig{
+		ServiceName: "existSvc",
+	})
 	defer cancel()
 
 	t.Run("nil", func(t *testing.T) {
-		assert.NoError(t, ctl.Set(nil))
+		assert.NoError(t, ctl.Add(nil))
 	})
 
 	t.Run("bad config", func(t *testing.T) {
-		assert.Error(t, ctl.Set(&ProxyConfig{}))
+		assert.Error(t, ctl.Add(&ProxyConfig{}))
+	})
+
+	t.Run("bad config", func(t *testing.T) {
+		assert.Equal(t, ErrExist, ctl.Add(&ProxyConfig{
+			ServiceName: "existSvc",
+		}))
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		assert.NoError(t, ctl.Set(&ProxyConfig{
+		assert.NoError(t, ctl.Add(&ProxyConfig{
 			ServiceName: "foo",
 		}))
 		assert.True(t, ctl.Exist("foo"))
+	})
+}
+
+func TestProxyConfigsController_Update(t *testing.T) {
+	mockCtl := gomock.NewController(t)
+	defer mockCtl.Finish()
+
+	ctl, cancel := genProxyConfigsController(t, mockCtl, &ProxyConfig{
+		ServiceName: "existSvc",
+	})
+	defer cancel()
+
+	t.Run("nil", func(t *testing.T) {
+		assert.NoError(t, ctl.Update(nil))
+	})
+
+	t.Run("bad config", func(t *testing.T) {
+		assert.Error(t, ctl.Update(&ProxyConfig{}))
+	})
+
+	t.Run("not exist", func(t *testing.T) {
+		assert.Equal(t, ErrNotExist, ctl.Update(&ProxyConfig{
+			ServiceName: "foo",
+		}))
+	})
+
+	t.Run("OK", func(t *testing.T) {
+		assert.NoError(t, ctl.Update(&ProxyConfig{
+			ServiceName: "existSvc",
+		}))
 	})
 }
 
@@ -208,7 +246,7 @@ func TestProxyConfigsController_Delete(t *testing.T) {
 	ctl, cancel := genProxyConfigsController(t, mockCtl)
 	defer cancel()
 
-	assert.NoError(t, ctl.Set(&ProxyConfig{
+	assert.NoError(t, ctl.Add(&ProxyConfig{
 		ServiceName: "foo",
 	}))
 	assert.True(t, ctl.Exist("foo"))
@@ -250,7 +288,7 @@ func TestProxyConfigsController_RegisterEventHandlerWithAdd(t *testing.T) {
 	ctl, cancel := genProxyConfigsController(t, mockCtl)
 	defer cancel()
 
-	assert.NoError(t, ctl.Set(&ProxyConfig{
+	assert.NoError(t, ctl.Add(&ProxyConfig{
 		ServiceName: "svc",
 		Config:      nil,
 	}))
@@ -284,7 +322,7 @@ func TestProxyConfigsController_RegisterEventHandlerWithUpdate(t *testing.T) {
 	})
 	defer cancel()
 
-	assert.NoError(t, ctl.Set(&ProxyConfig{
+	assert.NoError(t, ctl.Update(&ProxyConfig{
 		ServiceName: "svc",
 		Config: &service.Config{
 			Listener: &service.Listener{

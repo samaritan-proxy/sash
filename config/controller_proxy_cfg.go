@@ -108,7 +108,7 @@ func (c *ProxyConfigsController) GetCache(svc string) (*ProxyConfig, error) {
 	})
 }
 
-func (c *ProxyConfigsController) Set(cfg *ProxyConfig) error {
+func (c *ProxyConfigsController) Add(cfg *ProxyConfig) error {
 	if cfg == nil {
 		return nil
 	}
@@ -119,7 +119,21 @@ func (c *ProxyConfigsController) Set(cfg *ProxyConfig) error {
 	if err != nil {
 		return err
 	}
-	return c.ctl.Set(c.getNamespace(), c.getType(), cfg.ServiceName, b)
+	return c.ctl.Add(c.getNamespace(), c.getType(), cfg.ServiceName, b)
+}
+
+func (c *ProxyConfigsController) Update(cfg *ProxyConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if err := cfg.Verify(); err != nil {
+		return err
+	}
+	b, err := c.marshallSvcCfg(cfg.Config)
+	if err != nil {
+		return err
+	}
+	return c.ctl.Update(c.getNamespace(), c.getType(), cfg.ServiceName, b)
 }
 
 func (c *ProxyConfigsController) Exist(svc string) bool {

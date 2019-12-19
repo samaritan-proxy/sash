@@ -23,12 +23,12 @@ import (
 	"github.com/samaritan-proxy/sash/config"
 )
 
-func TestGetAndSet(t *testing.T) {
+func TestGetAndAdd(t *testing.T) {
 	s := NewMemStore()
 	assert.NoError(t, s.Start())
 	defer s.Stop()
 
-	assert.NoError(t, s.Set("a", "b", "c", []byte("hello")))
+	assert.NoError(t, s.Add("a", "b", "c", []byte("hello")))
 
 	b, err := s.Get("a", "b", "c")
 	assert.NoError(t, err)
@@ -59,7 +59,7 @@ func TestDel(t *testing.T) {
 	defer s.Stop()
 
 	assert.Error(t, s.Del("a", "b", "c"))
-	assert.NoError(t, s.Set("a", "b", "c", []byte("hello")))
+	assert.NoError(t, s.Add("a", "b", "c", []byte("hello")))
 	assert.NoError(t, s.Del("a", "b", "c"))
 	assert.False(t, s.Exist("a", "b", "c"))
 }
@@ -72,7 +72,7 @@ func TestGetKeys(t *testing.T) {
 	keys := []string{"a", "b", "c"}
 	sort.Strings(keys)
 	for _, key := range keys {
-		assert.NoError(t, s.Set("ns", "type", key, nil))
+		assert.NoError(t, s.Add("ns", "type", key, nil))
 	}
 	_, err := s.GetKeys("foo", "foo")
 	assert.Equal(t, config.ErrNotExist, err)
@@ -89,17 +89,17 @@ func TestSubscribeAndUnSubscribe(t *testing.T) {
 	assert.NoError(t, s.Start())
 	defer s.Stop()
 
-	assert.NoError(t, s.Set("ns1", "b", "c", []byte("hello")))
-	assert.NoError(t, s.Set("ns2", "b", "c", []byte("hello")))
+	assert.NoError(t, s.Add("ns1", "b", "c", []byte("hello")))
+	assert.NoError(t, s.Add("ns2", "b", "c", []byte("hello")))
 	assert.NoError(t, s.Subscribe("ns1"))
-	assert.NoError(t, s.Set("ns1", "b", "c", []byte("hi")))
-	assert.NoError(t, s.Set("ns2", "b", "c", []byte("hi")))
+	assert.NoError(t, s.Update("ns1", "b", "c", []byte("hi")))
+	assert.NoError(t, s.Update("ns2", "b", "c", []byte("hi")))
 	assert.Len(t, s.Event(), 1)
 	<-s.Event()
 	assert.Len(t, s.Event(), 0)
 
 	assert.NoError(t, s.UnSubscribe("ns1"))
-	assert.NoError(t, s.Set("ns1", "b", "c", []byte("hello")))
-	assert.NoError(t, s.Set("ns2", "b", "c", []byte("hello")))
+	assert.NoError(t, s.Update("ns1", "b", "c", []byte("hello")))
+	assert.NoError(t, s.Update("ns2", "b", "c", []byte("hello")))
 	assert.Len(t, s.Event(), 0)
 }

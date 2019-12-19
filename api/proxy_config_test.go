@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/samaritan-proxy/samaritan-api/go/common"
 	"github.com/samaritan-proxy/samaritan-api/go/config/protocol"
 	"github.com/samaritan-proxy/samaritan-api/go/config/service"
@@ -33,9 +32,6 @@ import (
 )
 
 func TestHandleGetAllProxyConfigs(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
 	cases := []struct {
 		Configs []*config.ProxyConfig
 		ReqURI  string
@@ -125,10 +121,10 @@ func TestHandleGetAllProxyConfigs(t *testing.T) {
 
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s := newTestServer(t, ctl)
+			s := newTestServer(t)
 			defer s.rawCtl.Stop()
 			for _, cfg := range c.Configs {
-				assert.NoError(t, s.proxyCfgCtl.Set(cfg))
+				assert.NoError(t, s.proxyCfgCtl.Add(cfg))
 			}
 			time.Sleep(time.Millisecond * 100)
 			resp := testHandler(httptest.NewRequest(http.MethodGet, c.ReqURI, nil), s)
@@ -143,9 +139,6 @@ func TestHandleGetAllProxyConfigs(t *testing.T) {
 }
 
 func TestHandleAddProxyConfig(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
 	cases := []struct {
 		Body       interface{} // can be bytes or struct
 		StatusCode int
@@ -168,7 +161,7 @@ func TestHandleAddProxyConfig(t *testing.T) {
 
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s := newTestServer(t, ctl)
+			s := newTestServer(t)
 			defer s.rawCtl.Stop()
 
 			b, ok := c.Body.([]byte)
@@ -184,16 +177,13 @@ func TestHandleAddProxyConfig(t *testing.T) {
 }
 
 func TestHandleGetProxyConfig(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.proxyCfgCtl.Set(&config.ProxyConfig{
+	assert.NoError(t, s.proxyCfgCtl.Add(&config.ProxyConfig{
 		ServiceName: "svc_1",
 	}))
-	assert.NoError(t, s.rawCtl.Set(config.NamespaceService, config.TypeServiceProxyConfig, "svc_foo", []byte{0}))
+	assert.NoError(t, s.rawCtl.Add(config.NamespaceService, config.TypeServiceProxyConfig, "svc_foo", []byte{0}))
 
 	time.Sleep(time.Millisecond * 10)
 
@@ -220,13 +210,10 @@ func TestHandleGetProxyConfig(t *testing.T) {
 }
 
 func TestHandleUpdateProxyConfig(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.proxyCfgCtl.Set(&config.ProxyConfig{
+	assert.NoError(t, s.proxyCfgCtl.Add(&config.ProxyConfig{
 		ServiceName: "svc_1",
 		Config: &service.Config{
 			Listener: &service.Listener{
@@ -280,13 +267,10 @@ func TestHandleUpdateProxyConfig(t *testing.T) {
 }
 
 func TestHandleDeleteProxyConfig(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.proxyCfgCtl.Set(&config.ProxyConfig{
+	assert.NoError(t, s.proxyCfgCtl.Add(&config.ProxyConfig{
 		ServiceName: "svc_1",
 	}))
 

@@ -142,26 +142,64 @@ func TestInstancesController_GetCache(t *testing.T) {
 	})
 }
 
-func TestInstancesController_Set(t *testing.T) {
+func TestInstancesController_Add(t *testing.T) {
 	mockCtl := gomock.NewController(t)
 	defer mockCtl.Finish()
 
-	ctl, cancel := genInstancesController(t, mockCtl)
+	ctl, cancel := genInstancesController(t, mockCtl, &Instance{
+		ID: "existInst",
+	})
 	defer cancel()
 
 	t.Run("nil", func(t *testing.T) {
-		assert.NoError(t, ctl.Set(nil))
+		assert.NoError(t, ctl.Add(nil))
 	})
 
 	t.Run("bad instance", func(t *testing.T) {
-		assert.Error(t, ctl.Set(&Instance{}))
+		assert.Error(t, ctl.Add(&Instance{}))
+	})
+
+	t.Run("exist", func(t *testing.T) {
+		assert.Equal(t, ErrExist, ctl.Add(&Instance{
+			ID: "existInst",
+		}))
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		assert.NoError(t, ctl.Set(&Instance{
+		assert.NoError(t, ctl.Add(&Instance{
 			ID: "foo",
 		}))
 		assert.True(t, ctl.Exist("foo"))
+	})
+}
+
+func TestInstancesController_Update(t *testing.T) {
+	mockCtl := gomock.NewController(t)
+	defer mockCtl.Finish()
+
+	ctl, cancel := genInstancesController(t, mockCtl, &Instance{
+		ID: "existInst",
+	})
+	defer cancel()
+
+	t.Run("nil", func(t *testing.T) {
+		assert.NoError(t, ctl.Update(nil))
+	})
+
+	t.Run("bad instance", func(t *testing.T) {
+		assert.Error(t, ctl.Update(&Instance{}))
+	})
+
+	t.Run("not exist", func(t *testing.T) {
+		assert.Equal(t, ErrNotExist, ctl.Update(&Instance{
+			ID: "foo",
+		}))
+	})
+
+	t.Run("OK", func(t *testing.T) {
+		assert.NoError(t, ctl.Update(&Instance{
+			ID: "existInst",
+		}))
 	})
 }
 
@@ -172,7 +210,7 @@ func TestInstancesController_Delete(t *testing.T) {
 	ctl, cancel := genInstancesController(t, mockCtl)
 	defer cancel()
 
-	assert.NoError(t, ctl.Set(&Instance{
+	assert.NoError(t, ctl.Add(&Instance{
 		ID: "foo",
 	}))
 	assert.True(t, ctl.Exist("foo"))

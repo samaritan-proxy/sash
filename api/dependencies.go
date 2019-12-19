@@ -16,7 +16,10 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	"github.com/samaritan-proxy/sash/config"
 )
@@ -46,12 +49,15 @@ func (s *Server) handleAddDependency(w http.ResponseWriter, r *http.Request) {
 	if err = dep.Verify(); err != nil {
 		goto BadRequest
 	}
-	if err = s.depsCtl.Set(dep); err != nil {
+	switch err = s.depsCtl.Add(dep); err {
+	case nil:
+		writeMsg(w, http.StatusOK, "OK")
+		return
+	case config.ErrExist:
+		goto BadRequest
+	default:
 		goto InternalError
 	}
-	writeMsg(w, http.StatusOK, "OK")
-	return
-
 BadRequest:
 	writeMsg(w, http.StatusBadRequest, err.Error())
 InternalError:
@@ -59,34 +65,46 @@ InternalError:
 }
 
 func (s *Server) handleGetDependency(w http.ResponseWriter, r *http.Request) {
-	service, ok := s.getServiceAndAssertExist(w, r, s.depsCtl.Exist)
-	if !ok {
-		return
-	}
+	service := mux.Vars(r)[paramService]
 	dep, err := s.depsCtl.Get(service)
-	if err != nil {
+	switch err {
+	case nil:
+		writeJSON(w, dep)
+	case config.ErrNotExist:
+		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
+	default:
 		writeMsg(w, http.StatusInternalServerError, err.Error())
-		return
 	}
-	writeJSON(w, dep)
 }
 
 func (s *Server) handleUpdateDependency(w http.ResponseWriter, r *http.Request) {
-	_, ok := s.getServiceAndAssertExist(w, r, s.depsCtl.Exist)
-	if !ok {
-		return
+	var (
+		service = mux.Vars(r)[paramService]
+		dep     = new(config.Dependency)
+		err     = json.NewDecoder(r.Body).Decode(&dep)
+	)
+	if err != nil {
+		writeMsg(w, http.StatusBadRequest, err.Error())
 	}
-	s.handleAddDependency(w, r)
+	dep.ServiceName = service
+	switch err = s.depsCtl.Update(dep); err {
+	case nil:
+		writeMsg(w, http.StatusOK, "OK")
+	case config.ErrNotExist:
+		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
+	default:
+		writeMsg(w, http.StatusInternalServerError, err.Error())
+	}
 }
 
 func (s *Server) handleDeleteDependency(w http.ResponseWriter, r *http.Request) {
-	service, ok := s.getServiceAndAssertExist(w, r, s.depsCtl.Exist)
-	if !ok {
-		return
-	}
-	if err := s.depsCtl.Delete(service); err != nil {
+	service := mux.Vars(r)[paramService]
+	switch err := s.depsCtl.Delete(service); err {
+	case nil:
+		writeMsg(w, http.StatusOK, "OK")
+	case config.ErrNotExist:
+		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
+	default:
 		writeMsg(w, http.StatusInternalServerError, err.Error())
-		return
 	}
-	writeMsg(w, http.StatusOK, "OK")
 }

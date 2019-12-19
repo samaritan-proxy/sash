@@ -21,16 +21,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/samaritan-proxy/sash/config"
 )
 
 func TestHandleGetAllInstances(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
 	cases := []struct {
 		Instances []*config.Instance
 		ReqURI    string
@@ -169,10 +165,10 @@ func TestHandleGetAllInstances(t *testing.T) {
 	}
 	for idx, c := range cases {
 		t.Run(fmt.Sprintf("case %d", idx+1), func(t *testing.T) {
-			s := newTestServer(t, ctl)
+			s := newTestServer(t)
 			defer s.rawCtl.Stop()
 			for _, inst := range c.Instances {
-				assert.NoError(t, s.instCtl.Set(inst))
+				assert.NoError(t, s.instCtl.Add(inst))
 			}
 			time.Sleep(time.Millisecond * 100)
 			resp := testHandler(httptest.NewRequest(http.MethodGet, c.ReqURI, nil), s)
@@ -187,13 +183,10 @@ func TestHandleGetAllInstances(t *testing.T) {
 }
 
 func TestHandleGetInstance(t *testing.T) {
-	ctl := gomock.NewController(t)
-	defer ctl.Finish()
-
-	s := newTestServer(t, ctl)
+	s := newTestServer(t)
 	defer s.rawCtl.Stop()
 
-	assert.NoError(t, s.instCtl.Set(&config.Instance{
+	assert.NoError(t, s.instCtl.Add(&config.Instance{
 		Metadata:      config.Metadata{},
 		ID:            "inst_1",
 		Hostname:      "test_host",
@@ -202,7 +195,7 @@ func TestHandleGetInstance(t *testing.T) {
 		Version:       "0.0.1",
 		BelongService: "test_svc",
 	}))
-	assert.NoError(t, s.rawCtl.Set(config.NamespaceSamaritan, config.TypeSamaritanInstance, "foo", nil))
+	assert.NoError(t, s.rawCtl.Add(config.NamespaceSamaritan, config.TypeSamaritanInstance, "foo", nil))
 
 	time.Sleep(time.Millisecond * 10)
 

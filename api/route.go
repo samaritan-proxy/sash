@@ -70,13 +70,3 @@ func (s *Server) genRouter() http.Handler {
 	handleSubRoute(router, routeProxyConfigs, s.genProxyConfigsRouter)
 	return router
 }
-
-func (s *Server) getServiceAndAssertExist(w http.ResponseWriter, r *http.Request, checker func(string) bool) (string, bool) {
-	pathVars := mux.Vars(r)
-	service := pathVars[paramService]
-	if !checker(service) {
-		writeMsg(w, http.StatusNotFound, fmt.Sprintf("service[%s] not found", service))
-		return "", false
-	}
-	return service, true
-}

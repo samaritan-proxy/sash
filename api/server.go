@@ -25,7 +25,6 @@ import (
 )
 
 type serverOptions struct {
-	Addr              string
 	ReadTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	WriteTimeout      time.Duration
@@ -33,12 +32,6 @@ type serverOptions struct {
 }
 
 type ServerOption func(o *serverOptions)
-
-func Addr(addr string) ServerOption {
-	return func(o *serverOptions) {
-		o.Addr = addr
-	}
-}
 
 func ReadTimeout(d time.Duration) ServerOption {
 	return func(o *serverOptions) {
@@ -76,7 +69,7 @@ type Server struct {
 	instCtl     *config.InstancesController
 }
 
-func New(reg registry.Cache, ctl *config.Controller, opts ...ServerOption) *Server {
+func New(addr string, reg registry.Cache, ctl *config.Controller, opts ...ServerOption) *Server {
 	options := new(serverOptions)
 	for _, opt := range opts {
 		opt(options)
@@ -89,7 +82,7 @@ func New(reg registry.Cache, ctl *config.Controller, opts ...ServerOption) *Serv
 		instCtl:     ctl.Instances(),
 		options:     options,
 		hs: &http.Server{
-			Addr:              options.Addr,
+			Addr:              addr,
 			ReadTimeout:       options.ReadTimeout,
 			ReadHeaderTimeout: options.ReadHeaderTimeout,
 			WriteTimeout:      options.WriteTimeout,

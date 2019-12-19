@@ -45,13 +45,36 @@ func (s *MemStore) Get(namespace, typ, key string) ([]byte, error) {
 	return s.configs.Get(namespace, typ, key)
 }
 
-func (s *MemStore) Set(namespace, typ, key string, value []byte) error {
+func (s *MemStore) Add(namespace, typ, key string, value []byte) error {
+	s.Lock()
+	defer s.Unlock()
+
+	_, err := s.configs.Get(namespace, typ, key)
+	switch err {
+	case config.ErrNotExist:
+	case nil:
+		return config.ErrExist
+	default:
+		return err
+	}
+
+	s.configs.Set(namespace, typ, key, value)
+	if _, ok := s.subscribeNS[namespace]; ok {
+		s.evtCh <- struct{}{}
+	}
+	return nil
+}
+
+func (s *MemStore) Update(namespace, typ, key string, value []byte) error {
 	s.Lock()
 	defer s.Unlock()
 
 	update := false
 	oldValue, err := s.configs.Get(namespace, typ, key)
-	if err == nil && !bytes.Equal(oldValue, value) {
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(oldValue, value) {
 		update = true
 	}
 
