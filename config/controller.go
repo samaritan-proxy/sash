@@ -30,10 +30,14 @@ const (
 	NamespaceService       = "service"
 	TypeServiceProxyConfig = "proxy-config"
 	TypeServiceDependency  = "dependency"
+
+	NamespaceSamaritan    = "samaritan"
+	TypeSamaritanInstance = "Instance"
 )
 
 var InterestedNSAndType = map[string][]string{
-	NamespaceService: {TypeServiceProxyConfig, TypeServiceDependency},
+	NamespaceService:   {TypeServiceProxyConfig, TypeServiceDependency},
+	NamespaceSamaritan: {TypeSamaritanInstance},
 }
 
 var (
@@ -74,7 +78,7 @@ type Controller struct {
 
 	options *controllerOptions
 
-	evtHdls []EventHandler
+	evtHdls atomic.Value //[]EventHandler
 
 	stop chan struct{}
 	wg   sync.WaitGroup
@@ -109,6 +113,14 @@ func (c *Controller) loadCache() *Cache {
 
 func (c *Controller) storeCache(cfg *Cache) {
 	c.cache.Store(cfg)
+}
+
+func (c *Controller) loadEvtHdls() []EventHandler {
+	hdls, ok := c.evtHdls.Load().([]EventHandler)
+	if !ok {
+		return nil
+	}
+	return hdls
 }
 
 func (c *Controller) trySubscribe(namespace ...string) error {
@@ -264,7 +276,7 @@ func (c *Controller) triggerLoop() {
 func (c *Controller) diff(that *Cache) {
 	add, update, del := c.loadCache().Diff(that)
 	dispatchEvent := func(event *Event) {
-		for _, hdl := range c.evtHdls {
+		for _, hdl := range c.loadEvtHdls() {
 			hdl(event)
 		}
 	}
@@ -302,9 +314,14 @@ func (c *Controller) loop() {
 }
 
 // RegisterEventHandler registers a handler to handle config event.
-// It is not goroutine-safe, should call it before execute Run.
 func (c *Controller) RegisterEventHandler(handler EventHandler) {
-	c.evtHdls = append(c.evtHdls, handler)
+	c.Lock()
+	defer c.Unlock()
+	oldEvtHdls := c.loadEvtHdls()
+	newEvtHdls := make([]EventHandler, 0, len(oldEvtHdls)+1)
+	copy(newEvtHdls, oldEvtHdls)
+	newEvtHdls = append(newEvtHdls, handler)
+	c.evtHdls.Store(newEvtHdls)
 }
 
 // Get return config data by namespace, type and key.

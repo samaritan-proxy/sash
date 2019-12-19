@@ -23,7 +23,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/samaritan-proxy/samaritan-api/go/api"
-	"github.com/samaritan-proxy/samaritan-api/go/config/service"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/peer"
 
@@ -123,7 +122,13 @@ func TestConfigDiscoverySessionSendFail(t *testing.T) {
 
 	session := newConfigDiscoverySession(stream)
 	time.AfterFunc(time.Millisecond*100, func() {
-		session.SendEvent(map[string]*service.Config{"foo": nil})
+		session.SendEvent(&config.ProxyConfigEvent{
+			Type: config.EventDelete,
+			ProxyConfig: &config.ProxyConfig{
+				ServiceName: "foo",
+				Config:      nil,
+			},
+		})
 	})
 	session.Serve()
 }
@@ -242,79 +247,6 @@ func TestConfigDiscoveryServerHandleUnsubscribe(t *testing.T) {
 	// assert subscribers
 	assert.Equal(t, 1, len(s.Subscribers()))
 	assert.Equal(t, 0, len(s.Subscribers()["foo"]))
-}
-
-func TestConfigDiscoveryServerHandleRegServiceEvent(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Second))
-	assert.NoError(t, ctl.Start())
-	defer ctl.Stop()
-	time.Sleep(time.Millisecond * 1500)
-	s := newConfigDiscoveryServer(ctl)
-
-	// subscribe foo
-	stream := makeSvcConfigsStream(ctrl)
-	session := newConfigDiscoverySession(stream)
-	s.handleSubscribe("foo", session)
-
-	tests := []struct {
-		name     string
-		event    *config.Event
-		expected configEvent
-	}{
-		{
-			name: "add",
-			event: &config.Event{
-				Type: config.EventAdd,
-				Config: config.NewRawConf(
-					config.NamespaceService,
-					config.TypeServiceProxyConfig,
-					"foo", nil,
-				),
-			},
-			expected: map[string]*service.Config{
-				"foo": new(service.Config),
-			},
-		},
-		{
-			name: "update",
-			event: &config.Event{
-				Type: config.EventUpdate,
-				Config: config.NewRawConf(
-					config.NamespaceService,
-					config.TypeServiceProxyConfig,
-					"foo", nil,
-				),
-			},
-			expected: map[string]*service.Config{
-				"foo": new(service.Config),
-			},
-		},
-		{
-			name: "delete",
-			event: &config.Event{
-				Type: config.EventDelete,
-				Config: config.NewRawConf(
-					config.NamespaceService,
-					config.TypeServiceProxyConfig,
-					"foo", nil,
-				),
-			},
-			expected: map[string]*service.Config{
-				"foo": nil,
-			},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			s.handleConfigEvent(test.event)
-			etEvent := <-session.eventCh
-			assert.Equal(t, test.expected, etEvent)
-		})
-	}
 }
 
 func TestConfigDiscoveryServerStreamSvcConfigs(t *testing.T) {

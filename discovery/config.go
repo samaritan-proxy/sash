@@ -27,8 +27,6 @@ import (
 
 //go:generate mockgen -package $GOPACKAGE -self_package github.com/samaritan-proxy/sash/$GOPACKAGE --destination ./mock_config_test.go github.com/samaritan-proxy/samaritan-api/go/api DiscoveryService_StreamSvcConfigsServer
 
-type configEvent map[string]*service.Config
-
 type (
 	configSubHandler   func(svcName string, session *configDiscoverySession)
 	configUnsubHandler func(svcName string, session *configDiscoverySession)
@@ -41,7 +39,7 @@ type configDiscoverySession struct {
 	subscribed map[string]struct{} // subscribed services.
 	subHdlr    configSubHandler
 	unsubHdlr  configUnsubHandler
-	eventCh    chan configEvent
+	eventCh    chan *config.ProxyConfigEvent
 
 	quit chan struct{}
 }
@@ -52,7 +50,7 @@ func newConfigDiscoverySession(stream api.DiscoveryService_StreamSvcConfigsServe
 		stream:     stream,
 		remote:     remote,
 		subscribed: make(map[string]struct{}, 8),
-		eventCh:    make(chan configEvent, 64),
+		eventCh:    make(chan *config.ProxyConfigEvent, 16),
 		quit:       make(chan struct{}),
 	}
 }
@@ -90,7 +88,7 @@ func (s *configDiscoverySession) Serve() {
 		}
 	}()
 
-	var event configEvent
+	var event *config.ProxyConfigEvent
 	for {
 		select {
 		case event = <-s.eventCh:
@@ -98,8 +96,16 @@ func (s *configDiscoverySession) Serve() {
 			return
 		}
 
+		var cfg *service.Config
+		switch event.Type {
+		case config.EventAdd, config.EventUpdate:
+			cfg = event.ProxyConfig.Config
+		default:
+		}
 		resp := &api.SvcConfigDiscoveryResponse{
-			Updated: event,
+			Updated: map[string]*service.Config{
+				event.ProxyConfig.ServiceName: cfg,
+			},
 		}
 		if err := s.stream.Send(resp); err != nil {
 			logger.Warnf("Send to config stream %s failed: %v", s.remote.Addr, err)
@@ -141,7 +147,7 @@ func (s *configDiscoverySession) unsubscribeAll() {
 	}
 }
 
-func (s *configDiscoverySession) SendEvent(event configEvent) {
+func (s *configDiscoverySession) SendEvent(event *config.ProxyConfigEvent) {
 	select {
 	case s.eventCh <- event:
 	case <-s.quit:
@@ -152,57 +158,26 @@ type configDiscoverySessions map[*configDiscoverySession]interface{}
 
 type configDiscoveryServer struct {
 	sync.RWMutex
-	ctl *config.Controller
+	cfgCtl *config.ProxyConfigsController
 
 	subscribers map[string]configDiscoverySessions
 }
 
 func newConfigDiscoveryServer(ctl *config.Controller) *configDiscoveryServer {
 	s := &configDiscoveryServer{
-		ctl:         ctl,
+		cfgCtl:      ctl.ProxyConfigs(),
 		subscribers: make(map[string]configDiscoverySessions),
 	}
-
-	s.ctl.RegisterEventHandler(s.handleConfigEvent)
+	s.cfgCtl.RegisterEventHandler(s.dispatchEvent)
 	return s
 }
 
-func toServiceConfig(b []byte) (*service.Config, error) {
-	cfg := new(service.Config)
-	if err := cfg.Unmarshal(b); err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-func (s *configDiscoveryServer) handleConfigEvent(evt *config.Event) {
-	if evt.Config.Namespace != config.NamespaceService ||
-		evt.Config.Type != config.TypeServiceProxyConfig {
-		return
-	}
-	var event configEvent
-	switch evt.Type {
-	case config.EventAdd, config.EventUpdate:
-		cfg, err := toServiceConfig(evt.Config.Value)
-		if err != nil {
-			logger.Warnf("failed to unmarshal config of service[%s], err: %v", evt.Config.Key, err)
-			return
-		}
-		event = map[string]*service.Config{evt.Config.Key: cfg}
-	case config.EventDelete:
-		event = map[string]*service.Config{evt.Config.Key: nil}
-	}
-	s.dispatchEvent(event)
-}
-
-func (s *configDiscoveryServer) dispatchEvent(event configEvent) {
+func (s *configDiscoveryServer) dispatchEvent(evt *config.ProxyConfigEvent) {
 	s.RLock()
 	defer s.RUnlock()
-	for svcName, cfg := range event {
-		subscribers := s.subscribers[svcName]
-		for subscriber := range subscribers {
-			subscriber.SendEvent(map[string]*service.Config{svcName: cfg})
-		}
+	subscribers := s.subscribers[evt.ProxyConfig.ServiceName]
+	for subscriber := range subscribers {
+		subscriber.SendEvent(evt)
 	}
 }
 
@@ -223,15 +198,14 @@ func (s *configDiscoveryServer) handleSubscribe(svcName string, c *configDiscove
 	subscribers[c] = struct{}{}
 
 	// send config when first subscribe
-	rawConf, err := s.ctl.GetCache(config.NamespaceService, config.TypeServiceProxyConfig, svcName)
+	cfg, err := s.cfgCtl.GetCache(svcName)
 	if err != nil {
 		return
 	}
-	svcCfg, err := toServiceConfig(rawConf)
-	if err != nil {
-		return
-	}
-	c.SendEvent(map[string]*service.Config{svcName: svcCfg})
+	c.SendEvent(&config.ProxyConfigEvent{
+		Type:        config.EventAdd,
+		ProxyConfig: cfg,
+	})
 }
 
 func (s *configDiscoveryServer) handleUnsubscribe(svcName string, c *configDiscoverySession) {
