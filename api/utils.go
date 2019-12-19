@@ -39,10 +39,6 @@ func writeMsg(w http.ResponseWriter, code int, msg string) {
 	_, _ = w.Write([]byte(msg))
 }
 
-func writeError(w http.ResponseWriter, err error) {
-
-}
-
 func writeJSON(w http.ResponseWriter, obj interface{}) {
 	w.Header().Set(contentType, contentTypeJSON)
 	b, err := json.Marshal(obj)
