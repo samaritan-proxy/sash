@@ -1,364 +1,487 @@
-# Sash API
+# Sash APIs
 
-## About
-- type:
-  - `regexp` : If the prefix is "re:", regular expression matching mode is enabled.
+## Introduction
+   
+### Status Code
 
-## GET /ping
-- response:
-  - 200: 
-    - body: PONG
+When the `Status Code` is `200`, the `Content-Type` is `application/json` and the body is a json object.
+When the `Status Code` is `40X` or `50X`, the `Content-Type` is `text/plain`, and the body is an error message.
 
-## GET /instances
-- description: Get all instance
-- parameters:
-  - query:
-    - page_num:
-      - type: int
-      - default: 0
-      - description: page number
-    - page_size:
-      - type: int
-      - default: 0
-      - description: page size
-    - id:
-      - type: string, regexp
-      - default: 
-      - description: filter instances by id.
-    - hostname:
-      - type: string, regexp
-      - default: 
-      - description: filter instances by hostname.
-    - ip:
-      - type: string, regexp
-      - default: 
-      - description: filter instances by ip.
-    - port:
-      - type: int, regexp
-      - default: 
-      - description: filter instances by port.
-    - version:
-      - type: string, regexp
-      - default: 
-      - description: filter instances by version.
-    - belong_service:
-      - type: string, regexp
-      - default: 
-      - description: filter instances by belong service.
-- response:
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - header:
-      - Content-Type: application/json
-    - body:
-        ```json
-        {
-            "data": [
-                {
-                    "create_time":"0001-01-01T00:00:00Z",
-                    "update_time":"0001-01-01T00:00:00Z",
-                    "id": "inst_1",
-                    "hostname": "test_host",
-                    "ip": "1.1.1.1",
-                    "port": 12345,
-                    "version": "0.0.1",
-                    "belong_service": "test_svc"
-                }
-            ],
-            "page_num": 0,
-            "page_size": 10,
-            "total":1
-        }
-        ```
+## `GET` /ping
 
-## GET /instances/{instance}
-- description: Get an instance by instance id.
-- parameters:
-  - path:
-    - instance:
-      - type: string
-      - require: true
-      - description: the id of the instance you want to get.
-- response:
-  - 404:
-    - description: instance not exist
-    - body: instance[{instance}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - header:
-      - Content-Type: application/json
-    - body:
-        ```json
-        {
-            "create_time":"0001-01-01T00:00:00Z",
-            "update_time":"0001-01-01T00:00:00Z",
-            "id": "inst_1",
-            "hostname": "test_host",
-            "ip": "1.1.1.1",
-            "port": 12345,
-            "version": "0.0.1",
-            "belong_service": "test_svc"
-        }
-        ```
+### Response
+ 
+- body: PONG
 
-## GET /dependencies
-- description: Get all dependencies
-- parameters:
-  - query:
-    - page_num:
-      - type: int
-      - default: 0
-      - description: page number
-    - page_size:
-      - type: int
-      - default: 0
-      - description: page size
-    - service_name:
-      - type: string, regexp
-      - default: 
-      - description: filter dependencies by service name.
-- response:
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - header:
-      - Content-Type: application/json
-    - body:
-        ```json
-        {
-            "data": [
-                {
-                    "create_time":"0001-01-01T00:00:00Z",
-                    "update_time":"0001-01-01T00:00:00Z",
-                    "id": "inst_1",
-                    "hostname": "test_host",
-                    "ip": "1.1.1.1",
-                    "port": 12345,
-                    "version": "0.0.1",
-                    "belong_service": "test_svc"
-                }
-            ],
-            "page_num": 0,
-            "page_size": 10,
-            "total":1
-        }
-        ```
+## `GET` /instances
 
-## POST /dependencies
-- description: add a dependency
-- parameters:
-  - body:
-    ```json5
+### Description
+
+Get all instances.
+
+### Parameters
+
+#### Query Parameters
+
+| name           | type   | require | default | description                        |
+| -------------- | ------ | ------- | ------- | ---------------------------------- |
+| page_num       | int    | false   | 0       | page number                        |
+| page_size      | int    | false   | 0       | page size                          |
+| id             | string | false   |         | filter instances by id             |
+| hostname       | string | false   |         | filter instances by hostname       |
+| ip             | string | false   |         | filter instances by ip             |
+| port           | string | false   |         | filter instances by port           |
+| version        | string | false   |         | filter instances by version        |
+| belong_service | string | false   |         | filter instances by belong service |
+
+### Response
+
+- body:
+
+    | name                  | type   | description              |
+    | --------------------- | ------ | ------------------------ |
+    | page_num              | int    | current page number      |
+    | page_size             | int    | current page size        |
+    | total                 | int    | total items count        |
+    | data                  | array  |                          |
+    | data.#.create_time    | string | create time              |
+    | data.#.update_time    | string | update time              |
+    | data.#.id             | string | instance ID              |
+    | data.#.hostname       | string | instance hostname        |
+    | data.#.ip             | string | instance IP              |
+    | data.#.port           | int    | instance port            |
+    | data.#.version        | string | instance version         |
+    | data.#.belong_service | string | instance  belong service |
+
+### Example
+
+#### Request
+
+`curl http://sash/instances?id=inst_1`
+
+#### Response
+
+```json5
+{
+  "data": [
     {
-        "service_name": "svc_1", // can not be null
-        "dependencies": ["dep_1", "dep_2"]
+      "create_time":"0001-01-01T00:00:00Z",
+      "update_time":"0001-01-01T00:00:00Z",
+      "id": "inst_1",
+      "hostname": "test_host",
+      "ip": "1.1.1.1",
+      "port": 12345,
+      "version": "0.0.1",
+      "belong_service": "test_svc"
     }
-    ```
-- response:
-  - 400:
-    - description: error in request
-    - body: ${ERROR_MESSAGE}
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - body: OK
+  ],
+  "page_num": 0,
+  "page_size": 10,
+  "total":1
+}
+```
 
-## GET /dependencies/{service}
-- description: Get a dependency by service name.
-- parameters:
-  - path:
-    - service:
-      - type: string
-      - require: true
-      - description: the name of the serivce you want to get.
-- response:
-  - 404:
-    - description: service not exist
-    - body: service[{service}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - header:
-      - Content-Type: application/json
-    - body:
-        ```json
-        {
-            "create_time":"0001-01-01T00:00:00Z",
-            "update_time":"0001-01-01T00:00:00Z",
-            "service_name": "svc_1",
-            "dependencies": ["dep_1", "dep_2"]
-        }
-        ```
+## `GET` /instances/:instance
 
-## PUT /dependencies/{service}
-- description: Update a dependency by service name.
-- parameters:
-  - path:
-    - service:
-      - type: string
-      - require: true
-      - description: the name of the serivce you want to update.
-  - body:
-    ```json5
+### Description
+
+Get an instance by instance id.
+
+### Response
+
+- header:
+    - Content-Type: application/json
+
+- body:
+
+    | name           | type   | description              |
+    | -------------- | ------ | ------------------------ |
+    | create_time    | string | create time              |
+    | update_time    | string | update time              |
+    | id             | string | instance ID              |
+    | hostname       | string | instance hostname        |
+    | ip             | string | instance IP              |
+    | port           | int    | instance port            |
+    | version        | string | instance version         |
+    | belong_service | string | instance  belong service |
+
+### Example
+
+#### Request
+
+`curl http://sash/instance/inst_1`
+
+#### Response
+
+```json5
+{
+  "create_time":"0001-01-01T00:00:00Z",
+  "update_time":"0001-01-01T00:00:00Z",
+  "id": "inst_1",
+  "hostname": "test_host",
+  "ip": "1.1.1.1",
+  "port": 12345,
+  "version": "0.0.1",
+  "belong_service": "test_svc"
+}
+```
+
+## `GET` /dependencies
+
+### Description
+
+Get all dependencies
+
+### Parameters
+
+#### Query Parameters
+
+| name         | type   | require | default | description                      |
+| ------------ | ------ | ------- | ------- | -------------------------------- |
+| page_num     | int    | false   | 0       | page number                      |
+| page_size    | int    | false   | 0       | page size                        |
+| service_name | string | false   |         | filter instances by service name |
+
+### Response:
+
+- header:
+    - Content-Type: application/json
+
+- body:
+
+    | name                | type   | description                  |
+    | ------------------- | ------ | ---------------------------- |
+    | page_num            | int    | current page number          |
+    | page_size           | int    | current page size            |
+    | total               | int    | total items count            |
+    | data                | array  |                              |
+    | data.#.create_time  | string | create time                  |
+    | data.#.update_time  | string | update time                  |
+    | data.#.service_name | string | service name                 |
+    | data.#.dependencies | array  | dependencies of this service |
+
+### Example
+
+#### Request
+
+`curl http://sash/dependencies/inst_1`
+
+#### Response
+
+```json5
+{
+  "data": [
     {
-        "dependencies": ["dep_1", "dep_2"]
+      "create_time":"0001-01-01T00:00:00Z",
+      "update_time":"0001-01-01T00:00:00Z",
+      "service_name": "svc_1",
+      "dependencies": ["dep_1", "dep_2"]
     }
-    ```
-- response:
-  - 400:
-    - description: error in request
-    - body: ${ERROR_MESSAGE}
-  - 404:
-    - description: service not exist
-    - body: service[{service}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - body: OK
+  ],
+  "page_num": 0,
+  "page_size": 10,
+  "total":1
+}
+```
 
-## DELETE /dependencies/{service}
-- description: delete a dependency by service name.
-- parameters:
-  - path:
-    - service:
-      - type: string
-      - require: true
-      - description: the name of the serivce you want to delete.
-- response:
-  - 404:
-    - description: service not exist
-    - body: service[{service}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - body: OK
+## `POST` /dependencies
 
-## GET /proxy-config
-- description: Get all proxy configs.
-- parameters:
-  - query:
-    - page_num:
-      - type: int
-      - default: 0
-      - description: page number
-    - page_size:
-      - type: int
-      - default: 0
-      - description: page size
-    - service_name:
-      - type: string, regexp
-      - default: 
-      - description: filter proxy configs by service name.
-- response:
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - header:
-      - Content-Type: application/json
-    - body:
-        ```json
-        {
-            "data": [
-                {
-                    "create_time":"0001-01-01T00:00:00Z",
-                    "update_time":"0001-01-01T00:00:00Z",
-                    "service_name": "svc_1",
-                    "config": null
-                }
-            ],
-            "page_num": 0,
-            "page_size": 10,
-            "total":1
-        }
-        ```
+### Description
 
-## POST /proxy-config
-- description: add a proxy config
-- parameters:
-  - body:
-    ```json5
+Add a dependency.
+
+### Parameters
+
+#### Header
+
+- Content-Type: application/json
+
+#### Body
+
+| name         | type   | require | default | description                  |
+| ------------ | ------ | ------- | ------- | ---------------------------- |
+| service_name | string | true    |         | service name                 |
+| dependencies | array  | true    |         | dependencies of this service |
+
+### Response
+
+- body: OK
+
+### Example
+
+#### Request
+
+`curl -X POST -H 'Content-Type: application/json' -d '{"service_name": "svc_1", "dependencies": ["dep_1", "dep_2"]}' http://sash/dependencies`
+
+#### Response
+
+`OK`
+
+## `GET` /dependencies/:service
+
+### Description
+
+Get a dependency by service name.
+
+### Response
+
+- header:
+    - Content-Type: application/json
+    
+- body:
+    
+    | name         | type   | description                  |
+    | ------------ | ------ | ---------------------------- |
+    | create_time  | string | create time                  |
+    | update_time  | string | update time                  |
+    | service_name | string | service name                 |
+    | dependencies | array  | dependencies of this service |
+
+### Example
+
+#### Request
+
+`curl http://sash/dependencies/svc_1`
+
+#### Response
+
+```json5
+{
+    "create_time":"0001-01-01T00:00:00Z",
+    "update_time":"0001-01-01T00:00:00Z",
+    "service_name": "svc_1",
+    "dependencies": ["dep_1", "dep_2"]
+}
+```
+
+## `PUT` /dependencies/:service
+
+### Description
+
+Update a dependency by service name.
+
+### Parameters
+
+#### Header
+
+- Content-Type: application/json
+
+#### Body
+
+| name         | type  | require | default | description                  |
+| ------------ | ----- | ------- | ------- | ---------------------------- |
+| dependencies | array | true    |         | dependencies of this service |
+
+### Response
+
+- body: OK
+
+### Example
+
+#### Request
+
+`curl -X PUT -H 'Content-Type: application/json' -d '{"dependencies": ["dep_1", "dep_2"]}' http://sash/dependencies/svc_1`
+
+#### Response
+
+`OK`
+
+## `DELETE` /dependencies/:service
+
+### Description
+
+Delete a dependency by service name.
+
+### Response
+
+- body: OK
+
+### Example
+
+#### Request
+
+`curl -X DELETE http://sash/dependencies/svc_1`
+
+#### Response
+
+`OK`
+
+## `GET` /proxy-configs
+
+### Description
+
+Get all proxy configs.
+
+### Parameters
+
+#### Query Parameters
+
+| name         | position | type   | require | default | description                      |
+| ------------ | -------- | ------ | ------- | ------- | -------------------------------- |
+| page_num     | query    | int    | false   | 0       | page number                      |
+| page_size    | query    | int    | false   | 0       | page size                        |
+| service_name | query    | string | false   |         | filter instances by service name |
+
+### Response
+
+- header:
+    - Content-Type: application/json
+
+- body:
+
+    | name                | type   | description                                                           |
+    | ------------------- | ------ | --------------------------------------------------------------------- |
+    | page_num            | int    | current page number                                                   |
+    | page_size           | int    | current page size                                                     |
+    | total               | int    | total items count                                                     |
+    | data                | array  |                                                                       |
+    | data.#.create_time  | string | create time                                                           |
+    | data.#.update_time  | string | update time                                                           |
+    | data.#.service_name | string | service name                                                          |
+    | data.#.config       | object | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+
+### Example
+
+#### Request
+
+`curl http://sash/proxy-configs?service_name=svc_1`
+
+#### Response
+
+```json5
+{
+  "data": [
     {
-        "service_name": "svc_1", // can not be null
-        "config": {}
+      "create_time":"0001-01-01T00:00:00Z",
+      "update_time":"0001-01-01T00:00:00Z",
+      "service_name": "svc_1",
+      "config": null
     }
-    ```
-- response:
-  - 400:
-    - description: error in request
-    - body: ${ERROR_MESSAGE}
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - body: OK
+  ],
+  "page_num": 0,
+  "page_size": 10,
+  "total":1
+}
+```
 
-## GET /proxy-config/{service}
-- description: Get a proxy config by service name.
-- parameters:
-  - path:
-    - service:
-      - type: string
-      - require: true
-      - description: the name of the proxy config you want to get.
-- response:
-  - 404:
-    - description: service not exist
-    - body: service[{service}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - header:
-      - Content-Type: application/json
-    - body:
-        ```json
-        {
-            "create_time":"0001-01-01T00:00:00Z",
-            "update_time":"0001-01-01T00:00:00Z",
-            "service_name": "svc_1",
-            "config": null
-        }
-        ```
+## `POST` /proxy-configs
 
-## PUT /proxy-config/{service}
-- description: Update a proxy config by service name.
-- parameters:
-  - path:
-    - service:
-      - type: string
-      - require: true
-      - description: the name of the proxy config you want to update.
-  - body:
-    ```json5
-    {
-        "config": {}
-    }
-    ```
-- response:
-  - 400:
-    - description: error in request
-    - body: ${ERROR_MESSAGE}
-  - 404:
-    - description: service not exist
-    - body: service[{service}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - body: OK
+### Description
 
-## DELETE /proxy-config/{service}
-- description: delete a proxy config by service name.
-- parameters:
-  - path:
-    - service:
-      - type: string
-      - require: true
-      - description: the name of the proxy config you want to delete.
-- response:
-  - 404:
-    - description: service not exist
-    - body: service[{service}] not found
-  - 500:
-    - body: ${ERROR_MESSAGE}
-  - 200:
-    - body: OK
+Add a proxy config.
+
+### Parameters
+
+#### Header
+
+- Content-Type: application/json
+
+#### Body
+
+| name         | type   | require | default | description                                                           |
+| ------------ | ------ | ------- | ------- | --------------------------------------------------------------------- |
+| service_name | string | true    |         | service name                                                          |
+| config       | object | true    |         | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+
+### Response
+
+- body: OK
+
+### Example
+
+#### Request
+
+`curl -X POST -H 'Content-Type: application/json' -d '{"service_name": "svc_1", "config": {"protocol": "Redis"}}' http://sash/proxy-configs`
+
+#### Response
+
+`OK`
+
+## `GET` /proxy-configs/:service
+
+### Description
+
+Get a proxy config by service name.
+
+### Response
+
+- header:
+    - Content-Type: application/json
+
+- body:
+
+    | name         | type   | description                                                           |
+    | ------------ | ------ | --------------------------------------------------------------------- |
+    | create_time  | string | create time                                                           |
+    | update_time  | string | update time                                                           |
+    | service_name | string | service name                                                          |
+    | config       | object | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+
+### Example
+
+#### Request
+
+`curl http://sash/proxy-configs/svc_1`
+
+#### Response
+
+```json5
+{
+    "create_time":"0001-01-01T00:00:00Z",
+    "update_time":"0001-01-01T00:00:00Z",
+    "service_name": "svc_1",
+    "config": null
+}
+```
+
+## `PUT` /proxy-configs/:service
+
+### Description
+
+Update a proxy config by service name.
+
+### Parameters
+
+#### Header
+
+- Content-Type: application/json
+
+#### Body
+
+| name   | type   | require | default | description                                                           |
+| ------ | ------ | ------- | ------- | --------------------------------------------------------------------- |
+| config | object | true    |         | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+
+### Response
+
+- body: OK
+
+### Example
+
+#### Request
+
+`curl -X PUT -H 'Content-Type: application/json' -d '{"config": {"protocol": "TCP"}}' http://sash/proxy-configs/svc_1`
+
+#### Response
+
+`OK`
+
+## `DELETE` /proxy-configs/:service
+
+### Description
+
+Delete a proxy config by service name.
+
+### Response
+
+- body: OK
+
+### Example
+
+#### Request
+
+`curl -X DELETE http://sash/proxy-configs/svc_1`
+
+#### Response
+
+`OK`
