@@ -7,6 +7,39 @@
 When the `Status Code` is `200`, the `Content-Type` is `application/json` and the body is a json object.
 When the `Status Code` is `40X` or `50X`, the `Content-Type` is `text/plain`, and the body is an error message.
 
+### Models
+
+#### Instance
+
+| name           | type   | description             |
+| -------------- | ------ | ----------------------- |
+| create_time    | string | create time             |
+| update_time    | string | update time             |
+| id             | string | instance ID             |
+| hostname       | string | instance hostname       |
+| ip             | string | instance IP             |
+| port           | int    | instance port           |
+| version        | string | instance version        |
+| belong_service | string | instance belong service |
+
+#### Dependency
+
+| name         | type     | description                  |
+| ------------ | -------- | ---------------------------- |
+| create_time  | string   | create time                  |
+| update_time  | string   | update time                  |
+| service_name | string   | service name                 |
+| dependencies | []string | dependencies of this service |
+
+#### ProxyConfig 
+
+| name         | type   | description                                                           |
+| ------------ | ------ | --------------------------------------------------------------------- |
+| create_time  | string | create time                                                           |
+| update_time  | string | update time                                                           |
+| service_name | string | service name                                                          |
+| config       | object | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+
 ## `GET` /ping
 
 ### Response
@@ -38,20 +71,12 @@ Get all instances.
 
 - body:
 
-    | name                  | type   | description              |
-    | --------------------- | ------ | ------------------------ |
-    | page_num              | int    | current page number      |
-    | page_size             | int    | current page size        |
-    | total                 | int    | total items count        |
-    | data                  | array  |                          |
-    | data.#.create_time    | string | create time              |
-    | data.#.update_time    | string | update time              |
-    | data.#.id             | string | instance ID              |
-    | data.#.hostname       | string | instance hostname        |
-    | data.#.ip             | string | instance IP              |
-    | data.#.port           | int    | instance port            |
-    | data.#.version        | string | instance version         |
-    | data.#.belong_service | string | instance  belong service |
+    | name      | type       | description                     |
+    | --------- | ---------- | ------------------------------- |
+    | page_num  | int        | current page number             |
+    | page_size | int        | current page size               |
+    | total     | int        | total items count               |
+    | data      | []Instance | [Instance Reference](#Instance) |
 
 ### Example
 
@@ -92,18 +117,7 @@ Get an instance by instance id.
 - header:
     - Content-Type: application/json
 
-- body:
-
-    | name           | type   | description              |
-    | -------------- | ------ | ------------------------ |
-    | create_time    | string | create time              |
-    | update_time    | string | update time              |
-    | id             | string | instance ID              |
-    | hostname       | string | instance hostname        |
-    | ip             | string | instance IP              |
-    | port           | int    | instance port            |
-    | version        | string | instance version         |
-    | belong_service | string | instance  belong service |
+- body: [Instance Reference](#Instance)
 
 ### Example
 
@@ -149,16 +163,12 @@ Get all dependencies
 
 - body:
 
-    | name                | type   | description                  |
-    | ------------------- | ------ | ---------------------------- |
-    | page_num            | int    | current page number          |
-    | page_size           | int    | current page size            |
-    | total               | int    | total items count            |
-    | data                | array  |                              |
-    | data.#.create_time  | string | create time                  |
-    | data.#.update_time  | string | update time                  |
-    | data.#.service_name | string | service name                 |
-    | data.#.dependencies | array  | dependencies of this service |
+    | name      | type         | description                         |
+    | --------- | ------------ | ----------------------------------- |
+    | page_num  | int          | current page number                 |
+    | page_size | int          | current page size                   |
+    | total     | int          | total items count                   |
+    | data      | []Dependency | [Dependency Reference](#Dependency) |
 
 ### Example
 
@@ -228,14 +238,7 @@ Get a dependency by service name.
 - header:
     - Content-Type: application/json
     
-- body:
-    
-    | name         | type   | description                  |
-    | ------------ | ------ | ---------------------------- |
-    | create_time  | string | create time                  |
-    | update_time  | string | update time                  |
-    | service_name | string | service name                 |
-    | dependencies | array  | dependencies of this service |
+- body: [Dependency Reference](#Dependency)
 
 ### Example
 
@@ -329,16 +332,12 @@ Get all proxy configs.
 
 - body:
 
-    | name                | type   | description                                                           |
-    | ------------------- | ------ | --------------------------------------------------------------------- |
-    | page_num            | int    | current page number                                                   |
-    | page_size           | int    | current page size                                                     |
-    | total               | int    | total items count                                                     |
-    | data                | array  |                                                                       |
-    | data.#.create_time  | string | create time                                                           |
-    | data.#.update_time  | string | update time                                                           |
-    | data.#.service_name | string | service name                                                          |
-    | data.#.config       | object | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+    | name      | type          | description                           |
+    | --------- | ------------- | ------------------------------------- |
+    | page_num  | int           | current page number                   |
+    | page_size | int           | current page size                     |
+    | total     | int           | total items count                     |
+    | data      | []ProxyConfig | [ProxyConfig Reference](#ProxyConfig) |
 
 ### Example
 
@@ -408,14 +407,7 @@ Get a proxy config by service name.
 - header:
     - Content-Type: application/json
 
-- body:
-
-    | name         | type   | description                                                           |
-    | ------------ | ------ | --------------------------------------------------------------------- |
-    | create_time  | string | create time                                                           |
-    | update_time  | string | update time                                                           |
-    | service_name | string | service name                                                          |
-    | config       | object | [Reference](https://samaritan-proxy.github.io/docs/proto-ref/#config) |
+- body: [ProxyConfig Reference](#ProxyConfig)
 
 ### Example
 
