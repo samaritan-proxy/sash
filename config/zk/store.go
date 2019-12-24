@@ -69,7 +69,14 @@ func (s *Store) Get(namespace, typ, key string) ([]byte, error) {
 	}
 }
 
-func (s *Store) Set(namespace, typ, key string, value []byte) error {
+func (s *Store) Add(namespace, typ, key string, value []byte) error {
+	// TODO: return error when key exist
+	zPath := path.Join(s.basePath, namespace, typ, key)
+	return s.conn.CreateRecursively(zPath, value)
+}
+
+func (s *Store) Update(namespace, typ, key string, value []byte) error {
+	// TODO: return error when key not exist
 	zPath := path.Join(s.basePath, namespace, typ, key)
 	return s.conn.CreateRecursively(zPath, value)
 }

@@ -22,12 +22,14 @@ import (
 
 var (
 	ErrNotExist = errors.New("config not exist")
+	ErrExist    = errors.New("config is exist")
 )
 
 // The store is a kv store.
 type Store interface {
 	Get(namespace, typ, key string) ([]byte, error)
-	Set(namespace, typ, key string, value []byte) error
+	Add(namespace, typ, key string, value []byte) error
+	Update(namespace, typ, key string, value []byte) error
 	Del(namespace, typ, key string) error
 	Exist(namespace, typ, key string) bool
 

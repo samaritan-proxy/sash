@@ -202,8 +202,8 @@ func TestConfigDiscoveryServerHandleSubscribe(t *testing.T) {
 	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
-	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceProxyConfig, "foo", nil))
-	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceProxyConfig, "bar", []byte{0, 0, 0, 0}))
+	assert.NoError(t, ctl.Add(config.NamespaceService, config.TypeServiceProxyConfig, "foo", nil))
+	assert.NoError(t, ctl.Add(config.NamespaceService, config.TypeServiceProxyConfig, "bar", []byte{0, 0, 0, 0}))
 
 	time.Sleep(time.Millisecond * 10)
 
@@ -234,7 +234,7 @@ func TestConfigDiscoveryServerHandleUnsubscribe(t *testing.T) {
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
 	time.Sleep(time.Millisecond * 1500)
-	assert.NoError(t, ctl.Set(config.NamespaceService, config.TypeServiceProxyConfig, "foo", nil))
+	assert.NoError(t, ctl.Add(config.NamespaceService, config.TypeServiceProxyConfig, "foo", nil))
 
 	s := newConfigDiscoveryServer(ctl)
 	s.handleSubscribe("foo", session1)

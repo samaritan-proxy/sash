@@ -145,7 +145,7 @@ func TestDependenciesController_GetCache(t *testing.T) {
 		ServiceName:  "svc",
 		Dependencies: []string{"dep_1", "dep_2"},
 	}
-	assert.NoError(t, ctl.Set(expectDep))
+	assert.NoError(t, ctl.Add(expectDep))
 
 	time.Sleep(time.Millisecond)
 
@@ -161,25 +161,60 @@ func TestDependenciesController_GetCache(t *testing.T) {
 	})
 }
 
-func TestDependenciesController_Set(t *testing.T) {
+func TestDependenciesController_Add(t *testing.T) {
 	mockCtl := gomock.NewController(t)
 	defer mockCtl.Finish()
 
-	ctl, cancel := genDependenciesController(t, mockCtl)
+	ctl, cancel := genDependenciesController(t, mockCtl, &Dependency{
+		ServiceName: "existSvc",
+	})
 	defer cancel()
 
 	t.Run("nil", func(t *testing.T) {
-		assert.NoError(t, ctl.Set(nil))
+		assert.NoError(t, ctl.Add(nil))
 	})
 	t.Run("bad dep", func(t *testing.T) {
-		assert.Error(t, ctl.Set(&Dependency{}))
+		assert.Error(t, ctl.Add(&Dependency{}))
+	})
+	t.Run("exist", func(t *testing.T) {
+		assert.Equal(t, ErrExist, ctl.Add(&Dependency{
+			ServiceName: "existSvc",
+		}))
 	})
 	t.Run("ok", func(t *testing.T) {
-		assert.NoError(t, ctl.Set(&Dependency{
+		assert.NoError(t, ctl.Add(&Dependency{
 			ServiceName:  "svc",
 			Dependencies: []string{"dep"},
 		}))
 		assert.True(t, ctl.Exist("svc"))
+	})
+}
+
+func TestDependenciesController_Update(t *testing.T) {
+	mockCtl := gomock.NewController(t)
+	defer mockCtl.Finish()
+
+	ctl, cancel := genDependenciesController(t, mockCtl, &Dependency{
+		ServiceName: "existSvc",
+	})
+	defer cancel()
+
+	t.Run("nil", func(t *testing.T) {
+		assert.NoError(t, ctl.Update(nil))
+	})
+	t.Run("bad dep", func(t *testing.T) {
+		assert.Error(t, ctl.Update(&Dependency{}))
+	})
+	t.Run("not exist", func(t *testing.T) {
+		assert.Equal(t, ErrNotExist, ctl.Update(&Dependency{
+			ServiceName: "foo",
+		}))
+	})
+	t.Run("ok", func(t *testing.T) {
+		assert.NoError(t, ctl.Update(&Dependency{
+			ServiceName:  "existSvc",
+			Dependencies: []string{"dep"},
+		}))
 	})
 }
 
@@ -190,7 +225,7 @@ func TestDependenciesController_Delete(t *testing.T) {
 	ctl, cancel := genDependenciesController(t, mockCtl)
 	defer cancel()
 
-	assert.NoError(t, ctl.Set(&Dependency{
+	assert.NoError(t, ctl.Add(&Dependency{
 		ServiceName:  "svc",
 		Dependencies: []string{"dep"},
 	}))
@@ -242,7 +277,7 @@ func TestDependenciesController_RegisterEventHandlerWithAdd(t *testing.T) {
 		close(done)
 	})
 
-	assert.NoError(t, ctl.Set(&Dependency{
+	assert.NoError(t, ctl.Add(&Dependency{
 		ServiceName:  "svc",
 		Dependencies: []string{"dep_1", "dep_2"},
 	}))
@@ -261,7 +296,7 @@ func TestDependenciesController_RegisterEventHandlerWithUpdate(t *testing.T) {
 	ctl, cancel := genDependenciesController(t, mockCtl)
 	defer cancel()
 
-	assert.NoError(t, ctl.Set(&Dependency{
+	assert.NoError(t, ctl.Add(&Dependency{
 		ServiceName:  "svc",
 		Dependencies: []string{"dep_1", "dep_2"},
 	}))
@@ -281,7 +316,7 @@ func TestDependenciesController_RegisterEventHandlerWithUpdate(t *testing.T) {
 		close(done)
 	})
 
-	assert.NoError(t, ctl.Set(&Dependency{
+	assert.NoError(t, ctl.Update(&Dependency{
 		ServiceName:  "svc",
 		Dependencies: []string{"dep_2", "dep_3"},
 	}))

@@ -84,7 +84,7 @@ func (c *InstancesController) GetCache(id string) (*Instance, error) {
 	return c.unmarshalInstance(b)
 }
 
-func (c *InstancesController) Set(inst *Instance) error {
+func (c *InstancesController) Add(inst *Instance) error {
 	if inst == nil {
 		return nil
 	}
@@ -95,7 +95,21 @@ func (c *InstancesController) Set(inst *Instance) error {
 	if err != nil {
 		return err
 	}
-	return c.ctl.Set(c.getNamespace(), c.getType(), inst.ID, b)
+	return c.ctl.Add(c.getNamespace(), c.getType(), inst.ID, b)
+}
+
+func (c *InstancesController) Update(inst *Instance) error {
+	if inst == nil {
+		return nil
+	}
+	if err := inst.Verify(); err != nil {
+		return err
+	}
+	b, err := c.marshalInstance(inst)
+	if err != nil {
+		return err
+	}
+	return c.ctl.Update(c.getNamespace(), c.getType(), inst.ID, b)
 }
 
 func (c *InstancesController) Exist(id string) bool {

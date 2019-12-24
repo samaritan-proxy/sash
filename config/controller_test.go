@@ -67,9 +67,23 @@ func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Depende
 		_, err := cache.Get(ns, typ, key)
 		return err == nil
 	}).AnyTimes()
-	store.EXPECT().Set(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string, value []byte) error {
+	store.EXPECT().Add(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string, value []byte) error {
 		lock.Lock()
 		defer lock.Unlock()
+		_, err := cache.Get(ns, typ, key)
+		if err == nil {
+			return ErrExist
+		}
+		cache.Set(ns, typ, key, value)
+		return nil
+	}).AnyTimes()
+	store.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string, value []byte) error {
+		lock.Lock()
+		defer lock.Unlock()
+		_, err := cache.Get(ns, typ, key)
+		if err != nil {
+			return err
+		}
 		cache.Set(ns, typ, key, value)
 		return nil
 	}).AnyTimes()
@@ -228,7 +242,7 @@ func TestController_GetAndExist(t *testing.T) {
 	assert.True(t, c.Exist(NamespaceService, TypeServiceDependency, "key"))
 }
 
-func TestController_Set(t *testing.T) {
+func TestController_Add(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -239,7 +253,7 @@ func TestController_Set(t *testing.T) {
 		gomock.Any(),
 		gomock.Any(),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Set(NamespaceService, TypeServiceDependency, "key", []byte("value")).Return(nil)
+	s.EXPECT().Add(NamespaceService, TypeServiceDependency, "key", []byte("value")).Return(nil)
 	c := NewController(s)
 	assert.NoError(t, c.Start())
 	// wait Controller init
@@ -254,7 +268,7 @@ func TestController_Set(t *testing.T) {
 			<-done
 		}, time.Second)
 	}()
-	assert.NoError(t, c.Set(NamespaceService, TypeServiceDependency, "key", []byte("value")))
+	assert.NoError(t, c.Add(NamespaceService, TypeServiceDependency, "key", []byte("value")))
 }
 
 func TestController_Del(t *testing.T) {
