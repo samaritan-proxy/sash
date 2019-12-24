@@ -71,7 +71,9 @@ func TestIdleTimeout(t *testing.T) {
 func TestServer(t *testing.T) {
 	s := newTestServer(t)
 
-	assert.NoError(t, s.Start())
+	go func() {
+		assert.NoError(t, s.Start())
+	}()
 
 	resp, err := http.Get("http://127.0.0.1:18882/ping")
 	assert.NoError(t, err)

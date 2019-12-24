@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/cenkalti/backoff/v3 v3.0.0
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/golang/mock v1.3.1
 	github.com/gorilla/mux v1.7.3
 	github.com/mesosphere/go-zookeeper v0.0.0-20190724122723-147466065fa4
