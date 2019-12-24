@@ -185,9 +185,17 @@ func (i *instance) Start() error {
 		return err
 	}
 	logger.Infof("HTTP API serve at: %s", rootCfg.API.Bind)
-	i.startComponent(func() { i.Api.Start() })
+	i.startComponent(func() {
+		if err := i.Api.Start(); err != nil {
+			logger.Fatal(err)
+		}
+	})
 	logger.Infof("XDS RPC serve at: %s", rootCfg.XdsRPC.Bind)
-	i.startComponent(func() { i.Xds.Serve() })
+	i.startComponent(func() {
+		if err := i.Xds.Serve(); err != nil {
+			logger.Fatal(err)
+		}
+	})
 	return nil
 }
 
