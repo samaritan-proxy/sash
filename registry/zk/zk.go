@@ -59,13 +59,13 @@ type DiscoveryClient struct {
 }
 
 // NewDiscoveryClient creates a discovery client with given parameters.
-func NewDiscoveryClient(connCfg *zk.ConnConfig, basePath string, options ...discoveryClientOption) (*DiscoveryClient, error) {
+func NewDiscoveryClient(connCfg *zk.ConnConfig, options ...discoveryClientOption) (*DiscoveryClient, error) {
 	conn, err := zk.CreateConn(connCfg, false)
 	if err != nil {
 		return nil, err
 	}
 
-	c, err := NewDiscoveryClientWithConn(conn, basePath, options...)
+	c, err := NewDiscoveryClientWithConn(conn, connCfg.BasePath, options...)
 	if err != nil {
 		conn.Close()
 		return nil, err

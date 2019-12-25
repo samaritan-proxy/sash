@@ -50,6 +50,7 @@ type ConnConfig struct {
 	Pwd            string        `yaml:"pwd"`
 	ConnectTimeout time.Duration `yaml:"connect_timeout"`
 	SessionTimeout time.Duration `yaml:"session_timeout"`
+	BasePath       string        `yaml:"base_path"`
 }
 
 // auth returns a string of "User:Pwd".

@@ -37,7 +37,6 @@ type ConfigStore struct {
 	Type     string        `yaml:"type"`
 	Spec     interface{}   `yaml:"spec"`
 	SyncFreq time.Duration `yaml:"sync_freq"`
-	BasePath string        `yaml:"base_path"`
 }
 
 func (c *ConfigStore) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -45,14 +44,12 @@ func (c *ConfigStore) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		Type     string        `yaml:"type"`
 		Spec     *RawMessage   `yaml:"spec"`
 		SyncFreq time.Duration `yaml:"sync_freq"`
-		BasePath string        `yaml:"base_path"`
 	}{}
 	if err := unmarshal(&s); err != nil {
 		return err
 	}
 
 	c.Type = s.Type
-	c.BasePath = s.BasePath
 	c.SyncFreq = s.SyncFreq
 
 	switch s.Type {
@@ -75,7 +72,6 @@ type Registry struct {
 	Spec       interface{}   `yaml:"spec"`
 	SyncFreq   time.Duration `yaml:"sync_freq"`
 	SyncJitter float64       `yaml:"sync_jitter"`
-	BasePath   string        `yaml:"base_path"`
 }
 
 func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -84,7 +80,6 @@ func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		Spec       *RawMessage   `yaml:"spec"`
 		SyncFreq   time.Duration `yaml:"sync_freq"`
 		SyncJitter float64       `yaml:"sync_jitter"`
-		BasePath   string        `yaml:"base_path"`
 	}{}
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -93,7 +88,6 @@ func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.Type = s.Type
 	r.SyncFreq = s.SyncFreq
 	r.SyncJitter = s.SyncJitter
-	r.BasePath = s.BasePath
 
 	switch s.Type {
 	case "memory":
