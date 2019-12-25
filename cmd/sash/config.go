@@ -35,7 +35,7 @@ func (msg *RawMessage) Unmarshal(v interface{}) error {
 
 type ConfigStore struct {
 	Type     string        `yaml:"type"`
-	Config   interface{}   `yaml:"config"`
+	Spec     interface{}   `yaml:"spec"`
 	SyncFreq time.Duration `yaml:"sync_freq"`
 	BasePath string        `yaml:"base_path"`
 }
@@ -43,7 +43,7 @@ type ConfigStore struct {
 func (c *ConfigStore) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s := struct {
 		Type     string        `yaml:"type"`
-		Config   *RawMessage   `yaml:"config"`
+		Spec     *RawMessage   `yaml:"spec"`
 		SyncFreq time.Duration `yaml:"sync_freq"`
 		BasePath string        `yaml:"base_path"`
 	}{}
@@ -57,22 +57,22 @@ func (c *ConfigStore) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	switch s.Type {
 	case "memory":
-		c.Config = nil
+		c.Spec = nil
 	case "zk":
 		conf := new(zk.ConnConfig)
-		if err := s.Config.Unmarshal(conf); err != nil {
+		if err := s.Spec.Unmarshal(conf); err != nil {
 			return err
 		}
-		c.Config = conf
+		c.Spec = conf
 	default:
-		c.Config = nil
+		c.Spec = nil
 	}
 	return nil
 }
 
 type Registry struct {
 	Type       string        `yaml:"type"`
-	Config     interface{}   `yaml:"config"`
+	Spec       interface{}   `yaml:"spec"`
 	SyncFreq   time.Duration `yaml:"sync_freq"`
 	SyncJitter float64       `yaml:"sync_jitter"`
 	BasePath   string        `yaml:"base_path"`
@@ -81,7 +81,7 @@ type Registry struct {
 func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	s := struct {
 		Type       string        `yaml:"type"`
-		Config     *RawMessage   `yaml:"config"`
+		Spec       *RawMessage   `yaml:"spec"`
 		SyncFreq   time.Duration `yaml:"sync_freq"`
 		SyncJitter float64       `yaml:"sync_jitter"`
 		BasePath   string        `yaml:"base_path"`
@@ -97,15 +97,15 @@ func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	switch s.Type {
 	case "memory":
-		r.Config = nil
+		r.Spec = nil
 	case "zk":
 		conf := new(zk.ConnConfig)
-		if err := s.Config.Unmarshal(conf); err != nil {
+		if err := s.Spec.Unmarshal(conf); err != nil {
 			return err
 		}
-		r.Config = conf
+		r.Spec = conf
 	default:
-		r.Config = nil
+		r.Spec = nil
 	}
 	return nil
 }

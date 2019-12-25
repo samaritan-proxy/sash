@@ -50,7 +50,7 @@ func newServiceRegistry() (model.ServiceRegistry, error) {
 		logger.Warnf("discovery will run in in-memory mode, only for test")
 		return regmem.NewRegistry(), nil
 	case "zk":
-		return regzk.NewDiscoveryClient(bootstrap.Registry.Config.(*zk.ConnConfig), bootstrap.Registry.BasePath)
+		return regzk.NewDiscoveryClient(bootstrap.Registry.Spec.(*zk.ConnConfig), bootstrap.Registry.BasePath)
 	default:
 		return nil, fmt.Errorf("unknown type of service registry: %s", typ)
 	}
@@ -59,10 +59,10 @@ func newServiceRegistry() (model.ServiceRegistry, error) {
 func newConfigStore() (config.Store, error) {
 	switch typ := bootstrap.ConfigStore.Type; typ {
 	case "memory":
-		logger.Warnf("discovery will run in in-memory mode, only for test")
+		logger.Warnf("config store will run in in-memory mode, only for test")
 		return cfgmem.NewMemStore(), nil
 	case "zk":
-		return cfgzk.New(bootstrap.Registry.Config.(*zk.ConnConfig), bootstrap.Registry.BasePath)
+		return cfgzk.New(bootstrap.Registry.Spec.(*zk.ConnConfig), bootstrap.Registry.BasePath)
 	default:
 		return nil, fmt.Errorf("unknown type of config store: %s", typ)
 	}
