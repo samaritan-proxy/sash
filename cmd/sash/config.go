@@ -16,31 +16,112 @@ package main
 
 import (
 	"time"
+
+	"github.com/samaritan-proxy/sash/internal/zk"
 )
 
-type Config struct {
-	Endpoint string        `yaml:"endpoint"`
-	Interval time.Duration `yaml:"interval"`
+type RawMessage struct {
+	unmarshal func(interface{}) error
+}
+
+func (msg *RawMessage) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	msg.unmarshal = unmarshal
+	return nil
+}
+
+func (msg *RawMessage) Unmarshal(v interface{}) error {
+	return msg.unmarshal(v)
+}
+
+type ConfigStore struct {
+	Type     string        `yaml:"type"`
+	Config   interface{}   `yaml:"config"`
+	SyncFreq time.Duration `yaml:"sync_freq"`
+	BasePath string        `yaml:"base_path"`
+}
+
+func (c *ConfigStore) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	s := struct {
+		Type     string        `yaml:"type"`
+		Config   *RawMessage   `yaml:"config"`
+		SyncFreq time.Duration `yaml:"sync_freq"`
+		BasePath string        `yaml:"base_path"`
+	}{}
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	c.Type = s.Type
+	c.BasePath = s.BasePath
+	c.SyncFreq = s.SyncFreq
+
+	switch s.Type {
+	case "memory":
+		c.Config = nil
+	case "zk":
+		conf := new(zk.ConnConfig)
+		if err := s.Config.Unmarshal(conf); err != nil {
+			return err
+		}
+		c.Config = conf
+	default:
+		c.Config = nil
+	}
+	return nil
 }
 
 type Registry struct {
-	Endpoint   string        `yaml:"endpoint"`
+	Type       string        `yaml:"type"`
+	Config     interface{}   `yaml:"config"`
 	SyncFreq   time.Duration `yaml:"sync_freq"`
 	SyncJitter float64       `yaml:"sync_jitter"`
+	BasePath   string        `yaml:"base_path"`
+}
+
+func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	s := struct {
+		Type       string        `yaml:"type"`
+		Config     *RawMessage   `yaml:"config"`
+		SyncFreq   time.Duration `yaml:"sync_freq"`
+		SyncJitter float64       `yaml:"sync_jitter"`
+		BasePath   string        `yaml:"base_path"`
+	}{}
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	r.Type = s.Type
+	r.SyncFreq = s.SyncFreq
+	r.SyncJitter = s.SyncJitter
+	r.BasePath = s.BasePath
+
+	switch s.Type {
+	case "memory":
+		r.Config = nil
+	case "zk":
+		conf := new(zk.ConnConfig)
+		if err := s.Config.Unmarshal(conf); err != nil {
+			return err
+		}
+		r.Config = conf
+	default:
+		r.Config = nil
+	}
+	return nil
 }
 
 type API struct {
 	Bind string `yaml:"bind"`
 }
 
-type XdsRPC struct {
+type Discovery struct {
 	Bind string `yaml:"bind"`
 }
 
-type Configs struct {
-	Config   Config   `yaml:"config"`
-	Registry Registry `yaml:"registry"`
-	API      API      `yaml:"api"`
-	XdsRPC   XdsRPC   `yaml:"xds_rpc"`
-	LogLevel string   `yaml:"log_level"`
+type Bootstrap struct {
+	ConfigStore ConfigStore `yaml:"config_store"`
+	Registry    Registry    `yaml:"registry"`
+	API         API         `yaml:"api"`
+	Discovery   Discovery   `yaml:"discovery"`
+	LogLevel    string      `yaml:"log_level"`
 }

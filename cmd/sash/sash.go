@@ -40,26 +40,12 @@ import (
 )
 
 func init() {
-	parseConfig()
+	parseFlags()
 }
 
 var (
 	signals = []os.Signal{syscall.SIGINT, syscall.SIGTERM}
-	inst    *instance
 )
-
-type instance struct {
-	wg     sync.WaitGroup
-	ctx    context.Context
-	cancel func()
-
-	// FIXME: remove this
-	SvcReg model.ServiceRegistry
-	Reg    registry.Cache
-	Cfg    *config.Controller
-	Api    *api.Server
-	Xds    *discovery.Server
-}
 
 func getDurationFromQuery(v url.Values, key string) (d time.Duration) {
 	value := v.Get(key)
@@ -73,7 +59,7 @@ func getDurationFromQuery(v url.Values, key string) (d time.Duration) {
 	return dur
 }
 
-func buildZKConfig(u *url.URL) *zk.ConnConfig {
+func newZKConfig(u *url.URL) *zk.ConnConfig {
 	var (
 		pwd, _         = u.User.Password()
 		connectTimeout = getDurationFromQuery(u.Query(), "connect_timeout")
@@ -89,140 +75,108 @@ func buildZKConfig(u *url.URL) *zk.ConnConfig {
 	}
 }
 
-func buildServiceRegistry() (model.ServiceRegistry, error) {
-	if len(rootCfg.Registry.Endpoint) == 0 {
+func newServiceRegistry() (model.ServiceRegistry, error) {
+	switch typ := bootstrap.Registry.Type; typ {
+	case "memory":
 		logger.Warnf("discovery will run in in-memory mode, only for test")
 		return regmem.NewRegistry(), nil
-	}
-	u, err := url.Parse(rootCfg.Registry.Endpoint)
-	if err != nil {
-		return nil, err
-	}
-	switch u.Scheme {
 	case "zk":
-		return regzk.NewDiscoveryClient(buildZKConfig(u), u.Path)
+		return regzk.NewDiscoveryClient(bootstrap.Registry.Config.(*zk.ConnConfig), bootstrap.Registry.BasePath)
 	default:
-		return nil, fmt.Errorf("unknown type of scheme when init service registry: %s", u.Scheme)
+		return nil, fmt.Errorf("unknown type of service registry: %s", typ)
 	}
 }
 
-func buildConfigStore() (config.Store, error) {
-	if len(rootCfg.Config.Endpoint) == 0 {
-		logger.Warnf("config store will run in in-memory mode, only for test")
+func newConfigStore() (config.Store, error) {
+	switch typ := bootstrap.ConfigStore.Type; typ {
+	case "memory":
+		logger.Warnf("discovery will run in in-memory mode, only for test")
 		return cfgmem.NewMemStore(), nil
-	}
-	u, err := url.Parse(rootCfg.Config.Endpoint)
-	if err != nil {
-		return nil, err
-	}
-	switch u.Scheme {
 	case "zk":
-		return cfgzk.New(buildZKConfig(u), u.Path)
+		return cfgzk.New(bootstrap.Registry.Config.(*zk.ConnConfig), bootstrap.Registry.BasePath)
 	default:
-		return nil, fmt.Errorf("unknown type of scheme when init config store: %s", u.Scheme)
+		return nil, fmt.Errorf("unknown type of config store: %s", typ)
 	}
 }
 
-func buildListener(addr string) (net.Listener, error) {
+func newListener(addr string) (net.Listener, error) {
 	return net.Listen("tcp", addr)
 }
 
-func initInstance() error {
-	if inst != nil {
-		return nil
-	}
+func main() {
+	logger.SetLevel(bootstrap.LogLevel)
+	logger.Debugf("rootConfig: %+v", bootstrap)
 
-	serviceRegistry, err := buildServiceRegistry()
+	wg := sync.WaitGroup{}
+
+	serviceRegistry, err := newServiceRegistry()
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 
-	store, err := buildConfigStore()
+	store, err := newConfigStore()
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 
-	ln, err := buildListener(rootCfg.XdsRPC.Bind)
+	ln, err := newListener(bootstrap.Discovery.Bind)
 	if err != nil {
-		return err
+		logger.Fatal(err)
 	}
 
-	var (
-		ctx, cancel = context.WithCancel(context.TODO())
-		reg         = registry.NewCache(
-			serviceRegistry,
-			registry.SyncFreq(rootCfg.Registry.SyncFreq),
-			registry.SyncJitter(rootCfg.Registry.SyncJitter))
-		ctl = config.NewController(store, config.Interval(rootCfg.Config.Interval))
-		api = api.New(rootCfg.API.Bind, reg, ctl)
-		xds = discovery.NewServer(ln, reg, ctl)
-	)
+	ctx, cancel := context.WithCancel(context.TODO())
 
-	inst = &instance{
-		ctx:    ctx,
-		cancel: cancel,
-		SvcReg: serviceRegistry,
-		Reg:    reg,
-		Cfg:    ctl,
-		Api:    api,
-		Xds:    xds,
-	}
-	return nil
-}
+	reg := registry.NewCache(
+		serviceRegistry,
+		registry.SyncFreq(bootstrap.Registry.SyncFreq),
+		registry.SyncJitter(bootstrap.Registry.SyncJitter))
+	ctl := config.NewController(store, config.Interval(bootstrap.ConfigStore.SyncFreq))
+	api := api.New(bootstrap.API.Bind, reg, ctl)
+	rpc := discovery.NewServer(ln, reg, ctl)
 
-func (i *instance) startComponent(fn func()) {
-	i.wg.Add(1)
+	wg.Add(1)
 	go func() {
-		defer i.wg.Done()
-		fn()
+		defer wg.Done()
+		serviceRegistry.Run(ctx)
 	}()
-}
 
-func (i *instance) Start() error {
-	i.startComponent(func() { i.SvcReg.Run(i.ctx) })
-	i.startComponent(func() { i.Reg.Run(i.ctx) })
-	if err := i.Cfg.Start(); err != nil {
-		return err
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reg.Run(ctx)
+	}()
+
+	if err := ctl.Start(); err != nil {
+		logger.Fatal(err)
 	}
-	logger.Infof("HTTP API serve at: %s", rootCfg.API.Bind)
-	i.startComponent(func() {
-		if err := i.Api.Start(); err != nil {
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		logger.Infof("HTTP API serve at: %s", bootstrap.API.Bind)
+		if err := api.Start(); err != nil {
 			logger.Fatal(err)
 		}
-	})
-	logger.Infof("XDS RPC serve at: %s", rootCfg.XdsRPC.Bind)
-	i.startComponent(func() {
-		if err := i.Xds.Serve(); err != nil {
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		logger.Infof("Discovery RPC serve at: %s", bootstrap.Discovery.Bind)
+		if err := rpc.Serve(); err != nil {
 			logger.Fatal(err)
 		}
-	})
-	return nil
-}
+	}()
 
-func (i *instance) Stop() {
-	i.cancel()
-	i.Cfg.Stop()
-	i.Api.Stop()
-	i.Xds.Stop()
-	i.wg.Wait()
-}
-
-func handleSignal() {
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, signals...)
 	s := <-signalCh
 	logger.Info("Signal received: ", s)
-	inst.Stop()
-}
 
-func main() {
-	logger.SetLevel(rootCfg.LogLevel)
-	logger.Debugf("rootConfig: %+v", rootCfg)
-	if err := initInstance(); err != nil {
-		logger.Fatal(err)
-	}
-	if err := inst.Start(); err != nil {
-		logger.Fatal(err)
-	}
-	handleSignal()
+	cancel()
+	api.Stop()
+	rpc.Stop()
+	ctl.Stop()
+
+	wg.Wait()
 }

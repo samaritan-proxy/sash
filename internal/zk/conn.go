@@ -45,11 +45,11 @@ func init() {
 
 // ConnConfig contains all zk connection configurations.
 type ConnConfig struct {
-	Hosts          []string
-	User           string
-	Pwd            string
-	ConnectTimeout time.Duration
-	SessionTimeout time.Duration
+	Hosts          []string      `yaml:"hosts"`
+	User           string        `yaml:"user"`
+	Pwd            string        `yaml:"pwd"`
+	ConnectTimeout time.Duration `yaml:"connect_timeout"`
+	SessionTimeout time.Duration `yaml:"session_timeout"`
 }
 
 // auth returns a string of "User:Pwd".

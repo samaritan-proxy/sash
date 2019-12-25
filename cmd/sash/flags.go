@@ -25,39 +25,32 @@ import (
 )
 
 var (
-	rootCfg = Configs{
-		Config: Config{
-			Endpoint: "",
-			Interval: time.Second * 5,
+	bootstrap = Bootstrap{
+		ConfigStore: ConfigStore{
+			SyncFreq: time.Second * 5,
 		},
 		Registry: Registry{
-			Endpoint:   "",
 			SyncFreq:   time.Second * 5,
 			SyncJitter: 0.1,
 		},
-		API:      API{Bind: ":8882"},
-		XdsRPC:   XdsRPC{Bind: ":9090"},
-		LogLevel: "info",
+		API:       API{Bind: ":8882"},
+		Discovery: Discovery{Bind: ":9090"},
+		LogLevel:  "info",
 	}
 
 	configFile string
 )
 
-func parseConfig() {
+func parseFlags() {
 	flag.StringVar(&configFile, "c", "./config.yaml", "config file")
 	flag.Parse()
-
-	if _, err := os.Stat(configFile); err != nil {
-		logger.Warnf("config file not found, use default config")
-		return
-	}
 
 	f, err := os.Open(configFile)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	if err = yaml.NewDecoder(f).Decode(&rootCfg); err != nil {
+	if err = yaml.NewDecoder(f).Decode(&bootstrap); err != nil {
 		logger.Fatal(err)
 	}
 }
