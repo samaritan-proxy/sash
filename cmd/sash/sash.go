@@ -18,13 +18,10 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/samaritan-proxy/sash/api"
 	"github.com/samaritan-proxy/sash/config"
@@ -46,34 +43,6 @@ func init() {
 var (
 	signals = []os.Signal{syscall.SIGINT, syscall.SIGTERM}
 )
-
-func getDurationFromQuery(v url.Values, key string) (d time.Duration) {
-	value := v.Get(key)
-	if len(value) == 0 {
-		return
-	}
-	dur, err := time.ParseDuration(value)
-	if err != nil {
-		return
-	}
-	return dur
-}
-
-func newZKConfig(u *url.URL) *zk.ConnConfig {
-	var (
-		pwd, _         = u.User.Password()
-		connectTimeout = getDurationFromQuery(u.Query(), "connect_timeout")
-		sessionTimeout = getDurationFromQuery(u.Query(), "session_timeout")
-	)
-
-	return &zk.ConnConfig{
-		Hosts:          strings.Split(u.Host, ","),
-		User:           u.User.Username(),
-		Pwd:            pwd,
-		ConnectTimeout: connectTimeout,
-		SessionTimeout: sessionTimeout,
-	}
-}
 
 func newServiceRegistry() (model.ServiceRegistry, error) {
 	switch typ := bootstrap.Registry.Type; typ {
