@@ -16,7 +16,7 @@ import (
 func TestNewDiscoveryClient(t *testing.T) {
 	t.Run("empty zk hosts", func(t *testing.T) {
 		connCfg := &zk.ConnConfig{}
-		_, err := NewDiscoveryClient(connCfg, "")
+		_, err := NewDiscoveryClient(connCfg)
 		assert.Error(t, err)
 	})
 
@@ -24,15 +24,16 @@ func TestNewDiscoveryClient(t *testing.T) {
 		connCfg := &zk.ConnConfig{
 			Hosts: []string{"127.0.0.1:2181"},
 		}
-		_, err := NewDiscoveryClient(connCfg, "")
+		_, err := NewDiscoveryClient(connCfg)
 		assert.Error(t, err)
 	})
 
 	t.Run("normal", func(t *testing.T) {
 		connCfg := &zk.ConnConfig{
-			Hosts: []string{"127.0.0.1:2181"},
+			Hosts:    []string{"127.0.0.1:2181"},
+			BasePath: "/service",
 		}
-		c, err := NewDiscoveryClient(connCfg, "/service")
+		c, err := NewDiscoveryClient(connCfg)
 		assert.NoError(t, err)
 		assert.NotNil(t, c)
 
