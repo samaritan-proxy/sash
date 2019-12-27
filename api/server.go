@@ -94,14 +94,13 @@ func New(addr string, reg registry.Cache, ctl *config.Controller, opts ...Server
 }
 
 func (s *Server) Start() error {
-	go func() {
-		switch err := s.hs.ListenAndServe(); err {
-		case nil, http.ErrServerClosed:
-		default:
-			logger.Warnf("http.Server.ListenAndServe got a unexpected error: %s")
-		}
-	}()
-	return nil
+	switch err := s.hs.ListenAndServe(); err {
+	case nil, http.ErrServerClosed:
+		return nil
+	default:
+		logger.Warnf("http.Server.ListenAndServe got a unexpected error: %s")
+		return err
+	}
 }
 
 func (s *Server) Stop() {

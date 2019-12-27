@@ -31,12 +31,12 @@ type Store struct {
 	basePath string
 }
 
-func New(connCfg *zk.ConnConfig, basePath string) (*Store, error) {
+func New(connCfg *zk.ConnConfig) (*Store, error) {
 	conn, err := zk.CreateConn(connCfg, true)
 	if err != nil {
 		return nil, err
 	}
-	c, err := NewWithConn(conn, basePath)
+	c, err := NewWithConn(conn, connCfg.BasePath)
 	if err != nil {
 		conn.Close()
 		return nil, err
