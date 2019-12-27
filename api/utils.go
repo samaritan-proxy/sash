@@ -123,24 +123,26 @@ REGEXP:
 
 // filterItemsByRequestParams will filter elements in items by request parameters.
 //
-// The items must be a slice or an array, and the type of element in this items must be a
+// The items must be a slice, and the type of element in this items must be a
 // struct or a pointer which point to a struct.
-func filterItemsByRequestParams(r *http.Request, items interface{}) ([]interface{}, error) {
+func filterItemsByRequestParams(r *http.Request, items interface{}) (interface{}, error) {
 	if items == nil {
 		return nil, nil
 	}
 
 	value := reflect.ValueOf(items)
 	switch value.Kind() {
-	case reflect.Array, reflect.Slice:
+	case reflect.Slice:
 	default:
-		return nil, errors.New("items must be a slice of array")
-	}
-	if value.Len() == 0 {
-		return []interface{}{}, nil
+		return nil, errors.New("items must be a slice")
 	}
 
-	res := make([]interface{}, 0, 4)
+	if value.Len() == 0 {
+		return items, nil
+	}
+
+	resPtr := reflect.New(value.Type())
+
 LoopElement:
 	for i := 0; i < value.Len(); i++ {
 		element := value.Index(i)
@@ -202,8 +204,8 @@ LoopElement:
 		}
 
 		// keep original type
-		res = append(res, value.Index(i).Interface())
+		resPtr.Elem().Set(reflect.Append(resPtr.Elem(), value.Index(i)))
 	}
 
-	return res, nil
+	return resPtr.Elem().Interface(), nil
 }
