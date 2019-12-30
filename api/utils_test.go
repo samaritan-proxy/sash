@@ -81,9 +81,9 @@ type badItem struct{}
 
 func (*badItem) Len() int { return 0 }
 
-func (*badItem) Swap(a, b int) {}
+func (*badItem) Swap(_, _ int) {}
 
-func (*badItem) Less(a, b int) bool { return false }
+func (*badItem) Less(_, _ int) bool { return false }
 
 func TestWritePagedResp(t *testing.T) {
 	cases := []struct {
@@ -181,7 +181,7 @@ func TestFilterByRequestParams(t *testing.T) {
 		Description string
 		Items       interface{}
 		RequestURI  string
-		Expect      []interface{}
+		Expect      interface{}
 		IsError     bool
 	}{
 		{
@@ -195,18 +195,21 @@ func TestFilterByRequestParams(t *testing.T) {
 			Description: "empty slice",
 			Items:       []TestStruct{},
 			RequestURI:  "/",
-			Expect:      []interface{}{},
+			Expect:      []TestStruct{},
 			IsError:     false,
 		},
 		{
-			Description: "empty array",
-			Items:       [0]TestStruct{},
-			RequestURI:  "/",
-			Expect:      []interface{}{},
-			IsError:     false,
+			Description: "array",
+			Items: [2]TestStruct{
+				{FieldString: "foo"},
+				{FieldString: "bar"},
+			},
+			RequestURI: "/?field_string=foo",
+			Expect:     nil,
+			IsError:    true,
 		},
 		{
-			Description: "not a slice or array",
+			Description: "not a slice",
 			Items:       "foo",
 			RequestURI:  "/",
 			Expect:      nil,
@@ -284,26 +287,12 @@ func TestFilterByRequestParams(t *testing.T) {
 				},
 			},
 			RequestURI: "/?field_int_32=11",
-			Expect: []interface{}{
-				&TestStruct{
+			Expect: []*TestStruct{
+				{
 					FieldInt32: 11,
 				},
-				&TestStruct{
+				{
 					FieldInt32: 11,
-				},
-			},
-			IsError: false,
-		},
-		{
-			Description: "array",
-			Items: [2]TestStruct{
-				{FieldString: "foo"},
-				{FieldString: "bar"},
-			},
-			RequestURI: "/?field_string=foo",
-			Expect: []interface{}{
-				TestStruct{
-					FieldString: "foo",
 				},
 			},
 			IsError: false,
@@ -328,8 +317,8 @@ func TestFilterByRequestParams(t *testing.T) {
 				},
 			},
 			RequestURI: "/?field_string=foo&field_int_32=11",
-			Expect: []interface{}{
-				&TestStruct{
+			Expect: []*TestStruct{
+				{
 					FieldString:  "foo",
 					FieldInt32:   11,
 					FieldFloat64: 5.0,
