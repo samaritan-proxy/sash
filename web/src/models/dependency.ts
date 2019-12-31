@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react'
-import MultipleTags from '../components/MultipleTags'
+import {Time} from "./base";
 
-export function RenderStringArrayAsTags(input: string[]): JSX.Element {
-    return (<MultipleTags arr={input}/>)
+export interface Dependency extends Time {
+    service_name: string
+    dependencies: string[]
 }

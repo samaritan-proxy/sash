@@ -64,7 +64,7 @@ func (*ProxyConfigsController) unmarshalSvcCfg(b []byte) (*service.Config, error
 		return nil, nil
 	}
 	cfg := new(service.Config)
-	if err := cfg.Unmarshal(b); err != nil {
+	if err := cfg.UnmarshalJSON(b); err != nil {
 		return nil, err
 	}
 	return cfg, nil
@@ -74,7 +74,7 @@ func (*ProxyConfigsController) marshallSvcCfg(cfg *service.Config) ([]byte, erro
 	if cfg == nil {
 		return nil, nil
 	}
-	return cfg.Marshal()
+	return cfg.MarshalJSON()
 }
 
 func (c *ProxyConfigsController) get(svc string, from func(svc string) ([]byte, error)) (*ProxyConfig, error) {
@@ -144,20 +144,28 @@ func (c *ProxyConfigsController) Delete(svc string) error {
 	return c.ctl.Del(c.getNamespace(), c.getType(), svc)
 }
 
-func (c *ProxyConfigsController) GetAll() (ProxyConfigs, error) {
-	svcs, err := c.ctl.Keys(c.getNamespace(), c.getType())
+func (c *ProxyConfigsController) getAll(getKeysFn func(string, string) ([]string, error), getFn func(string) (*ProxyConfig, error)) (ProxyConfigs, error) {
+	svcs, err := getKeysFn(c.getNamespace(), c.getType())
 	if err != nil {
 		return nil, err
 	}
 	cfgs := ProxyConfigs{}
 	for _, svc := range svcs {
-		cfg, err := c.Get(svc)
+		cfg, err := getFn(svc)
 		if err != nil {
 			return nil, err
 		}
 		cfgs = append(cfgs, cfg)
 	}
 	return cfgs, nil
+}
+
+func (c *ProxyConfigsController) GetAll() (ProxyConfigs, error) {
+	return c.getAll(c.ctl.Keys, c.Get)
+}
+
+func (c *ProxyConfigsController) GetAllCache() (ProxyConfigs, error) {
+	return c.getAll(c.ctl.KeysCached, c.GetCache)
 }
 
 func (c *ProxyConfigsController) RegisterEventHandler(handler ProxyConfigEventHandler) {

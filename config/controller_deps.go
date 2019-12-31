@@ -158,20 +158,28 @@ func (c *DependenciesController) Delete(svc string) error {
 	return c.ctl.Del(c.getNamespace(), c.getType(), svc)
 }
 
-func (c *DependenciesController) GetAll() (Dependencies, error) {
-	svcs, err := c.ctl.Keys(c.getNamespace(), c.getType())
+func (c *DependenciesController) getAll(getKeysFn func(string, string) ([]string, error), getFn func(string) (*Dependency, error)) (Dependencies, error) {
+	svcs, err := getKeysFn(c.getNamespace(), c.getType())
 	if err != nil {
 		return nil, err
 	}
 	deps := Dependencies{}
 	for _, svc := range svcs {
-		dep, err := c.Get(svc)
+		dep, err := getFn(svc)
 		if err != nil {
 			return nil, err
 		}
 		deps = append(deps, dep)
 	}
 	return deps, nil
+}
+
+func (c *DependenciesController) GetAll() (Dependencies, error) {
+	return c.getAll(c.ctl.Keys, c.Get)
+}
+
+func (c *DependenciesController) GetAllCache() (Dependencies, error) {
+	return c.getAll(c.ctl.KeysCached, c.GetCache)
 }
 
 func (c *DependenciesController) handleRawEvent(event *Event) {

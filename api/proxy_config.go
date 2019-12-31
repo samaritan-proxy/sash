@@ -25,7 +25,7 @@ import (
 )
 
 func (s *Server) handleGetAllProxyConfigs(w http.ResponseWriter, r *http.Request) {
-	cfgs, err := s.proxyCfgCtl.GetAll()
+	cfgs, err := s.proxyCfgCtl.GetAllCache()
 	if err != nil {
 		writeMsg(w, http.StatusInternalServerError, err.Error())
 		return

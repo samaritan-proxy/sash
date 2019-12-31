@@ -12,9 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react'
-import MultipleTags from '../components/MultipleTags'
+import * as R from 'ramda';
 
-export function RenderStringArrayAsTags(input: string[]): JSX.Element {
-    return (<MultipleTags arr={input}/>)
+export function validateJSONFormat(rule: any, value: any, callback: any, source?: any, options?: any): any {
+    try {
+        JSON.parse(value)
+    } catch (e) {
+        callback(e)
+    }
+    callback()
+}
+
+export interface Entry {
+    Key: any
+    Value: any
+}
+
+export function Object2Array(obj: object): Entry[] {
+    let res: Entry[] = [];
+    R.forEachObjIndexed((v, k) => {
+        res = R.append({
+            Key: k,
+            Value: v
+        } as Entry, res)
+    }, obj);
+    return res
 }

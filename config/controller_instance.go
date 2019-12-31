@@ -120,18 +120,26 @@ func (c *InstancesController) Delete(id string) error {
 	return c.ctl.Del(c.getNamespace(), c.getType(), id)
 }
 
-func (c *InstancesController) GetAll() (Instances, error) {
-	ids, err := c.ctl.Keys(c.getNamespace(), c.getType())
+func (c *InstancesController) getAll(getKeysFn func(string, string) ([]string, error), getFn func(string) (*Instance, error)) (Instances, error) {
+	ids, err := getKeysFn(c.getNamespace(), c.getType())
 	if err != nil {
 		return nil, err
 	}
 	insts := Instances{}
 	for _, id := range ids {
-		inst, err := c.Get(id)
+		inst, err := getFn(id)
 		if err != nil {
 			return nil, err
 		}
 		insts = append(insts, inst)
 	}
 	return insts, nil
+}
+
+func (c *InstancesController) GetAll() (Instances, error) {
+	return c.getAll(c.ctl.Keys, c.Get)
+}
+
+func (c *InstancesController) GetAllCache() (Instances, error) {
+	return c.getAll(c.ctl.KeysCached, c.GetCache)
 }

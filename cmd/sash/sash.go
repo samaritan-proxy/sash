@@ -62,7 +62,7 @@ func newConfigStore() (config.Store, error) {
 		logger.Warnf("config store will run in in-memory mode, only for test")
 		return cfgmem.NewMemStore(), nil
 	case "zk":
-		return cfgzk.New(bootstrap.Registry.Spec.(*zk.ConnConfig))
+		return cfgzk.New(bootstrap.ConfigStore.Spec.(*zk.ConnConfig))
 	default:
 		return nil, fmt.Errorf("unknown type of config store: %s", typ)
 	}

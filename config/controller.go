@@ -32,7 +32,7 @@ const (
 	TypeServiceDependency  = "dependency"
 
 	NamespaceSamaritan    = "samaritan"
-	TypeSamaritanInstance = "Instance"
+	TypeSamaritanInstance = "instance"
 )
 
 var InterestedNSAndType = map[string][]string{
@@ -355,7 +355,12 @@ func (c *Controller) Exist(namespace, typ, key string) bool {
 	return err == nil
 }
 
-// Keys return all key by namespace and type
+// Keys return all key by namespace and type.
 func (c *Controller) Keys(namespace, typ string) ([]string, error) {
+	return c.store.GetKeys(namespace, typ)
+}
+
+// Keys return all key by namespace and type from cache.
+func (c *Controller) KeysCached(namespace, typ string) ([]string, error) {
 	return c.loadCache().Keys(namespace, typ)
 }

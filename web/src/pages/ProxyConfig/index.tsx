@@ -12,43 +12,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, {Fragment} from 'react'
-import {Button, Col, Divider, Icon, Modal, Row, Table} from 'antd'
-import {Dependency} from '../../models/dependency'
-import {mockDependencies} from "../../dev/mocks";
-import {RenderStringArrayAsTags} from "../../renders/renders";
-import {DeleteDependency, GetDependencies} from '../../api/api'
+import {ProxyConfig} from "../../models/proxy-config";
+import React, {Component, Fragment} from "react";
+import {mockProxyConfigs} from "../../dev/mocks";
+import {ColumnProps} from "antd/es/table";
+import {DeleteProxyConfig, GetProxyConfigs} from "../../api/api";
+import {Button, Col, Divider, Icon, Modal, Row, Table} from "antd";
 import {RouteComponentProps} from "react-router-dom";
 import Search from "antd/es/input/Search";
 
-interface DependencyPageState {
+interface ProxyConfigPageState {
     loading: boolean
     page: number
     pageSize: number
     total: number
     searchService: string
-    selectedDependency: Dependency
-    dependencies: Dependency[]
-    showDeleteConfirm: boolean
+    proxyConfigs: ProxyConfig[]
+    showCreateModal: boolean,
 }
 
-interface DependencyPageProps extends RouteComponentProps {
-
+interface ProxyConfigPageProps extends RouteComponentProps {
 }
 
-class DependencyPage extends React.Component<DependencyPageProps, DependencyPageState> {
+class ProxyConfigPage extends Component<ProxyConfigPageProps, ProxyConfigPageState> {
     state = {
         page: 0,
         pageSize: 10,
         loading: true,
         total: 0,
         searchService: "",
-        selectedDependency: {} as Dependency,
-        dependencies: mockDependencies,
-        showDeleteConfirm: false
+        proxyConfigs: mockProxyConfigs,
+        showCreateModal: false,
     };
 
-    columns = [
+    columns: ColumnProps<ProxyConfig>[] = [
         {
             title: 'Service Name',
             key: 'service_name',
@@ -65,16 +62,17 @@ class DependencyPage extends React.Component<DependencyPageProps, DependencyPage
             dataIndex: 'update_time',
         },
         {
-            title: 'Dependencies',
-            key: 'dependencies',
-            dataIndex: 'dependencies',
-            render: RenderStringArrayAsTags,
+            title: 'Protocol',
+            key: 'config.protocol',
+            dataIndex: 'config.protocol'
         },
         {
             title: 'Operation',
-            render: (record: any) => (
+            render: (record: ProxyConfig) => (
                 <div>
-                    <a onClick={this.onClickUpdateButton(record)}>Update</a>
+                    <a onClick={() => {
+                        this.props.history.push(`/proxy-configs/${record.service_name}`)
+                    }}>Update</a>
                     <Divider type="vertical"/>
                     <a onClick={this.onClickDeleteButton(record.service_name)}>Delete</a>
                 </div>
@@ -82,24 +80,13 @@ class DependencyPage extends React.Component<DependencyPageProps, DependencyPage
         }
     ];
 
-    constructor(props: any) {
+    constructor(props: ProxyConfigPageProps) {
         super(props);
-        this.bindCallbacks()
+        this.onClickDeleteButton = this.onClickDeleteButton.bind(this)
     }
 
-    bindCallbacks() {
-        this.onClickUpdateButton = this.onClickUpdateButton.bind(this);
-        this.onClickCreateButton = this.onClickCreateButton.bind(this);
-        this.onInputServiceSearch = this.onInputServiceSearch.bind(this);
-        this.onSearchService = this.onSearchService.bind(this);
-        this.onClickDeleteButton = this.onClickDeleteButton.bind(this);
-        this.onChangePage = this.onChangePage.bind(this)
-    }
-
-    onClickUpdateButton(record: Dependency) {
-        return () => {
-            this.props.history.push(`/dependency/update?service=${record.service_name}`)
-        }
+    componentDidMount(): void {
+        this.reloadPage()
     }
 
     onClickDeleteButton(service_name: string) {
@@ -108,57 +95,38 @@ class DependencyPage extends React.Component<DependencyPageProps, DependencyPage
             Modal.confirm({
                 title: `Do you want to delete ${service_name}?`,
                 onOk: () => {
-                    DeleteDependency(service_name);
+                    DeleteProxyConfig(service_name);
                     return new Promise((resolve) => {
                         setTimeout(() => {
                             reloadPage();
                             resolve()
-                        }, 1000);
+                        }, 1500);
                     });
                 },
             });
         };
     }
 
-    onClickCreateButton() {
-        this.props.history.push(`/dependency/new`)
-    }
-
-    onInputServiceSearch(e: any) {
-        this.setState({searchService: e.target.value})
-    }
-
-    onSearchService() {
-        this.reloadPage()
-    }
-
-    onChangePage(pageNum: number) {
-        this.setState({page: pageNum - 1}, this.reloadPage)
-    }
-
-    componentDidMount() {
-        this.reloadPage()
-    }
-
     reloadPage() {
-        this.setState({loading: true}, this.getDependencies)
+        this.setState({loading: true}, this.getProxyConfigs)
     }
 
-    async getDependencies() {
-        let res = await GetDependencies(this.state.page, this.state.searchService);
-        if (res) {
-            this.setState({
-                page: res.page_num,
-                pageSize: res.page_size,
-                total: res.total,
-                dependencies: res.data,
-                loading: false
-            })
+    async getProxyConfigs() {
+        let res = await GetProxyConfigs(this.state.page, this.state.searchService);
+        if (!res) {
+            return
         }
+        this.setState({
+            page: res.page_num,
+            pageSize: res.page_size,
+            total: res.total,
+            proxyConfigs: res.data,
+            loading: false
+        })
     }
 
     render() {
-        const {page, pageSize, total, loading, dependencies} = this.state;
+        const {page, pageSize, total, loading, proxyConfigs} = this.state
         return (
             <Fragment>
                 <Row style={{marginBottom: 15}}>
@@ -174,7 +142,9 @@ class DependencyPage extends React.Component<DependencyPageProps, DependencyPage
                     </Col>
                     <Col span={2} offset={16}>
                         <Button
-                            onClick={this.onClickCreateButton}
+                            onClick={() => {
+                                this.props.history.push("/proxy-configs/new")
+                            }}
                             style={{textAlign: "right"}}
                             type="primary">
                             <Icon type="plus"/>
@@ -182,22 +152,24 @@ class DependencyPage extends React.Component<DependencyPageProps, DependencyPage
                         </Button>
                     </Col>
                 </Row>
+
                 <Table
                     rowKey="service_name"
                     columns={this.columns}
-                    dataSource={dependencies}
+                    dataSource={proxyConfigs}
                     loading={loading}
                     pagination={{
                         pageSize: pageSize,
                         current: page + 1,
                         total: total,
-                        onChange: this.onChangePage,
+                        onChange: (pageNum) => {
+                            this.setState({page: pageNum - 1}, this.reloadPage)
+                        },
                     }}
                 />
             </Fragment>
-
         )
     }
 }
 
-export default DependencyPage
+export default ProxyConfigPage

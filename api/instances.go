@@ -22,7 +22,7 @@ import (
 )
 
 func (s *Server) handleGetAllInstances(w http.ResponseWriter, r *http.Request) {
-	insts, err := s.instCtl.GetAll()
+	insts, err := s.instCtl.GetAllCache()
 	if err != nil {
 		writeMsg(w, http.StatusInternalServerError, err.Error())
 		return

@@ -12,9 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react'
-import MultipleTags from '../components/MultipleTags'
+import React from "react";
+import {Button, Result} from "antd";
+import {Link} from "react-router-dom";
 
-export function RenderStringArrayAsTags(input: string[]): JSX.Element {
-    return (<MultipleTags arr={input}/>)
+class NotFoundPage extends React.Component {
+    render() {
+        return (
+            <Result
+                status="404"
+                title="404"
+                subTitle="Sorry, the page you visited does not exist."
+                extra={<Link to={"/"}> <Button type="primary">Back Home</Button> </Link>}
+            />
+        )
+    }
 }
+
+export default NotFoundPage

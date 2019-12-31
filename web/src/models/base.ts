@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react'
-import MultipleTags from '../components/MultipleTags'
+export interface Time {
+    create_time?: string
+    update_time?: string
+}
 
-export function RenderStringArrayAsTags(input: string[]): JSX.Element {
-    return (<MultipleTags arr={input}/>)
+export interface SashResponse<T> {
+    page_num: number
+    page_size: number
+    total: number
+    data: T
 }
