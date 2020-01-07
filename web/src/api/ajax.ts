@@ -139,14 +139,14 @@ function errorHandler(err: AxiosError) {
 
 // patchWithNotice same as ajaxPatch but will prompt notice when done
 function doCallWithMessage(doCall: any) {
-    message.loading("请求发送中");
+    message.loading("loading...");
     doCall().then(
         (res: any) => {
             message.destroy();
             if (res) {
-                message.success("请求成功")
+                message.success("success")
             } else {
-                message.error("请求失败")
+                message.error("failed")
             }
             return res
         }
