@@ -28,11 +28,11 @@ export interface Entry {
     Value: any
 }
 
-export function Object2Array(obj: object): Entry[] {
+export function Object2Array(obj: object, keyMap?: Map<string, string>): Entry[] {
     let res: Entry[] = [];
     R.forEachObjIndexed((v, k) => {
         res = R.append({
-            Key: k,
+            Key: keyMap && keyMap.has(k) ? keyMap.get(k) : k,
             Value: v
         } as Entry, res)
     }, obj);

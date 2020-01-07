@@ -56,6 +56,17 @@ class InstanceDetailPage extends React.Component<InstanceDetailPageProps<RoutePa
         }
     ];
 
+    keyMap: Map<string, string> = new Map<string, string>([
+        ["create_time", "Create Time"],
+        ["update_time", "Update Time"],
+        ["id", "Instance ID"],
+        ["hostname", "Hostname"],
+        ["ip", "IP"],
+        ["port", "Port"],
+        ["version", "Version"],
+        ["belong_service", "Belong Service"]
+    ]);
+
     constructor(props: InstanceDetailPageProps<RouteParams>) {
         super(props);
     }
@@ -85,7 +96,7 @@ class InstanceDetailPage extends React.Component<InstanceDetailPageProps<RoutePa
                 <Table
                     columns={this.columns}
                     rowKey={undefined}
-                    dataSource={Object2Array(instance)}
+                    dataSource={Object2Array(instance, this.keyMap)}
                     loading={loading}
                     showHeader={false}
                     pagination={false}
