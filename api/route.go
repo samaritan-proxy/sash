@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	baseRoute         = "/api"
+	apiRoute          = "/api"
 	routeDependencies = "/dependencies"
 	routeInstances    = "/instances"
 	routeProxyConfigs = "/proxy-configs"
@@ -71,7 +71,7 @@ func handleSubRoute(baseRouter *mux.Router, path string, fn func(router *mux.Rou
 
 func (s *Server) genRouter() http.Handler {
 	router := mux.NewRouter()
-	apiRoute := router.PathPrefix(baseRoute).Subrouter()
+	apiRoute := router.PathPrefix(apiRoute).Subrouter()
 	apiRoute.HandleFunc(routePing, s.handlePing)
 	handleSubRoute(apiRoute, routeDependencies, s.genDependenciesRouter)
 	handleSubRoute(apiRoute, routeInstances, s.genInstancesRouter)

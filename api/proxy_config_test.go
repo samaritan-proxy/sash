@@ -46,7 +46,7 @@ func TestHandleGetAllProxyConfigs(t *testing.T) {
 					Config:      nil,
 				},
 			},
-			ReqURI: "/proxy-configs",
+			ReqURI: "/api/proxy-configs",
 			Resp: `{
 				"data": [
 					{
@@ -74,7 +74,7 @@ func TestHandleGetAllProxyConfigs(t *testing.T) {
 					Config:      nil,
 				},
 			},
-			ReqURI: "/proxy-configs?service_name=svc_1&config=sth",
+			ReqURI: "/api/proxy-configs?service_name=svc_1&config=sth",
 			Resp: `{
 				"data": [
 					{
@@ -102,7 +102,7 @@ func TestHandleGetAllProxyConfigs(t *testing.T) {
 					Config:      nil,
 				},
 			},
-			ReqURI: "/proxy-configs?service_name=re%3Asvc_%5B0-9%5D%2B", // re:svc_[0-9]+
+			ReqURI: "/api/proxy-configs?service_name=re%3Asvc_%5B0-9%5D%2B", // re:svc_[0-9]+
 			Resp: `{
 				"data": [
 					{
@@ -170,7 +170,7 @@ func TestHandleAddProxyConfig(t *testing.T) {
 				assert.NoError(t, err)
 				b = _b
 			}
-			resp := testHandler(httptest.NewRequest(http.MethodPost, "/proxy-configs", bytes.NewReader(b)), s)
+			resp := testHandler(httptest.NewRequest(http.MethodPost, "/api/proxy-configs", bytes.NewReader(b)), s)
 			assert.Equal(t, c.StatusCode, resp.Code)
 		})
 	}
@@ -188,17 +188,17 @@ func TestHandleGetProxyConfig(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	t.Run("not found", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/proxy-configs/foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/proxy-configs/foo", nil), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("internal error", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/proxy-configs/svc_foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/proxy-configs/svc_foo", nil), s)
 		assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/proxy-configs/svc_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/proxy-configs/svc_1", nil), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		assert.JSONEq(t, `{
 						"create_time":"0001-01-01T00:00:00Z",
@@ -234,13 +234,13 @@ func TestHandleUpdateProxyConfig(t *testing.T) {
 		resp := testHandler(
 			httptest.NewRequest(
 				http.MethodPut,
-				"/proxy-configs/svc_foo",
+				"/api/proxy-configs/svc_foo",
 				bytes.NewReader([]byte("{}"))), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("bad body", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodPut, "/proxy-configs/svc_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodPut, "/api/proxy-configs/svc_1", nil), s)
 		assert.Equal(t, http.StatusBadRequest, resp.Code)
 	})
 
@@ -258,7 +258,7 @@ func TestHandleUpdateProxyConfig(t *testing.T) {
 			}
 		}`)
 
-		resp := testHandler(httptest.NewRequest(http.MethodPut, "/proxy-configs/svc_1", bytes.NewReader(body)), s)
+		resp := testHandler(httptest.NewRequest(http.MethodPut, "/api/proxy-configs/svc_1", bytes.NewReader(body)), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		cfg, err := s.proxyCfgCtl.Get("svc_1")
 		assert.NoError(t, err)
@@ -277,12 +277,12 @@ func TestHandleDeleteProxyConfig(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	t.Run("not found", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/proxy-configs/svc_foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/api/proxy-configs/svc_foo", nil), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/proxy-configs/svc_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/api/proxy-configs/svc_1", nil), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		assert.False(t, s.depsCtl.Exist("svc_1"))
 	})

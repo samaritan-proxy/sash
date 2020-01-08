@@ -75,7 +75,7 @@ func TestServer(t *testing.T) {
 		assert.NoError(t, s.Start())
 	}()
 
-	resp, err := http.Get("http://127.0.0.1:18882/ping")
+	resp, err := http.Get("http://127.0.0.1:18882/api/ping")
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

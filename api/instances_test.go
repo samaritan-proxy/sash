@@ -48,7 +48,7 @@ func TestHandleGetAllInstances(t *testing.T) {
 					BelongService: "test_svc",
 				},
 			},
-			ReqURI: "/instances",
+			ReqURI: "/api/instances",
 			Resp: `{
 				"data": [
 					{
@@ -95,7 +95,7 @@ func TestHandleGetAllInstances(t *testing.T) {
 					BelongService: "test_svc",
 				},
 			},
-			ReqURI: "/instances?id=inst_1",
+			ReqURI: "/api/instances?id=inst_1",
 			Resp: `{
 				"data": [
 					{
@@ -142,7 +142,7 @@ func TestHandleGetAllInstances(t *testing.T) {
 					BelongService: "test_svc",
 				},
 			},
-			ReqURI: "/instances?id=re%3Ainst_%5B0-9%5D%2B", // re:inst_[0-9]+
+			ReqURI: "/api/instances?id=re%3Ainst_%5B0-9%5D%2B", // re:inst_[0-9]+
 			Resp: `{
 				"data": [
 					{
@@ -200,17 +200,17 @@ func TestHandleGetInstance(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	t.Run("not found", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/instances/inst_foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/instances/inst_foo", nil), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("internal error", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/instances/foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/instances/foo", nil), s)
 		assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/instances/inst_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/instances/inst_1", nil), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		assert.JSONEq(t, `{
 						"create_time":"0001-01-01T00:00:00Z",
