@@ -16,7 +16,7 @@ clean:
 
 .PHONY:
 build-web:
-	cd ./web && yarn build && cd ../
+	cd ./web && yarn install && yarn build && cd ../
 
 .PHONY: generate
 generate:
