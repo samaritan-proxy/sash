@@ -52,6 +52,8 @@ github.com/op/go-logging v0.0.0-20160315200505-970db520ece7 h1:lDH9UUVJtmYCjyT0C
 github.com/op/go-logging v0.0.0-20160315200505-970db520ece7/go.mod h1:HzydrMdWErDVzsI23lYNej1Htcns9BCg93Dk0bBINWk=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/rakyll/statik v0.1.6 h1:uICcfUXpgqtw2VopbIncslhAmE5hwc4g20TEyEENBNs=
+github.com/rakyll/statik v0.1.6/go.mod h1:OEi9wJV/fMUAGx1eNjq75DKDsJVuEv1U0oYdX6GX8Zs=
 github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191115092309-8c45bdaed657 h1:GFGSUpGL+QNzlayDS+LVLJvZMcoJdG/TusNXpzsD95A=
 github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191115092309-8c45bdaed657/go.mod h1:sUe4KseO0gweqGhlAu6nP45HJ6eMnnJxzZeVjPIU16E=
 github.com/samaritan-proxy/samaritan-api/go v0.0.0-20191128062029-063b4ce6f250 h1:CjmvjZEzNS66YKtmpUbFNdNRTzKRo/5LEsaf5mHqXPM=

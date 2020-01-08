@@ -14,14 +14,21 @@
 
 package api
 
+//go:generate statik -f -src=../web/build/
+
 import (
 	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rakyll/statik/fs"
+
+	_ "github.com/samaritan-proxy/sash/api/statik"
+	"github.com/samaritan-proxy/sash/logger"
 )
 
 const (
+	baseRoute         = "/api"
 	routeDependencies = "/dependencies"
 	routeInstances    = "/instances"
 	routeProxyConfigs = "/proxy-configs"
@@ -64,9 +71,16 @@ func handleSubRoute(baseRouter *mux.Router, path string, fn func(router *mux.Rou
 
 func (s *Server) genRouter() http.Handler {
 	router := mux.NewRouter()
-	router.HandleFunc(routePing, s.handlePing)
-	handleSubRoute(router, routeDependencies, s.genDependenciesRouter)
-	handleSubRoute(router, routeInstances, s.genInstancesRouter)
-	handleSubRoute(router, routeProxyConfigs, s.genProxyConfigsRouter)
+	apiRoute := router.PathPrefix(baseRoute).Subrouter()
+	apiRoute.HandleFunc(routePing, s.handlePing)
+	handleSubRoute(apiRoute, routeDependencies, s.genDependenciesRouter)
+	handleSubRoute(apiRoute, routeInstances, s.genInstancesRouter)
+	handleSubRoute(apiRoute, routeProxyConfigs, s.genProxyConfigsRouter)
+
+	statikFS, err := fs.New()
+	if err != nil {
+		logger.Fatal(err)
+	}
+	router.PathPrefix("/").Methods(http.MethodGet).Handler(http.FileServer(statikFS))
 	return router
 }

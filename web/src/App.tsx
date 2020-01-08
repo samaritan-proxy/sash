@@ -15,10 +15,10 @@
 import React from 'react';
 import Home from './pages/Home'
 import './App.css';
-import {Route, Router, Switch} from 'react-router';
-import {createBrowserHistory} from 'history'
+import {Route, Switch} from 'react-router';
+import {createHashHistory} from 'history'
 import {Icon, Layout, Menu} from 'antd';
-import {Link} from 'react-router-dom';
+import {HashRouter, Link} from 'react-router-dom';
 import DependencyPage from './pages/Dependency'
 import NewDependencyPage from './pages/Dependency/CreateDependency';
 import UpdateDependencyPage from './pages/Dependency/UpdateDependency'
@@ -45,12 +45,12 @@ class App extends React.Component {
 
     render() {
         const {collapsed} = this.state;
-        const history = createBrowserHistory();
+        const history = createHashHistory();
         const path = history.location.pathname;
         let currentKey = URLkey[path];
         return (
             <div className="App">
-                <Router history={history}>
+                <HashRouter>
                     <Layout style={{minHeight: '100vh'}}>
                         <Sider collapsible collapsed={collapsed}
                                onCollapse={(collapsed: boolean) => this.setState({collapsed})}>
@@ -107,7 +107,7 @@ class App extends React.Component {
                             <Footer style={{textAlign: 'center'}}>Sash ©2019 Samaritan Proxy</Footer>
                         </Layout>
                     </Layout>
-                </Router>
+                </HashRouter>
             </div>
         );
     }

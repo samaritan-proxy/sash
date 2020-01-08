@@ -18,7 +18,7 @@ import {ajaxDelete, ajaxGet, ajaxPost, ajaxPut} from './ajax'
 import {Instance} from "../models/instance";
 import {ProxyConfig} from "../models/proxy-config";
 
-const APIPrefix = "";
+const APIPrefix = "/api";
 const dependenciesRoute = "dependencies";
 const instanceRoute = "instances";
 const proxyConfigRoute = "proxy-configs";

@@ -36,19 +36,16 @@ func (m *MockCache) EXPECT() *MockCacheMockRecorder {
 
 // Run mocks base method
 func (m *MockCache) Run(ctx context.Context) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Run", ctx)
 }
 
 // Run indicates an expected call of Run
 func (mr *MockCacheMockRecorder) Run(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockCache)(nil).Run), ctx)
 }
 
 // List mocks base method
 func (m *MockCache) List() ([]string, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -57,13 +54,11 @@ func (m *MockCache) List() ([]string, error) {
 
 // List indicates an expected call of List
 func (mr *MockCacheMockRecorder) List() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockCache)(nil).List))
 }
 
 // Get mocks base method
 func (m *MockCache) Get(name string) (*model.Service, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", name)
 	ret0, _ := ret[0].(*model.Service)
 	ret1, _ := ret[1].(error)
@@ -72,13 +67,11 @@ func (m *MockCache) Get(name string) (*model.Service, error) {
 
 // Get indicates an expected call of Get
 func (mr *MockCacheMockRecorder) Get(name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockCache)(nil).Get), name)
 }
 
 // Exists mocks base method
 func (m *MockCache) Exists(name string) bool {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exists", name)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -86,30 +79,25 @@ func (m *MockCache) Exists(name string) bool {
 
 // Exists indicates an expected call of Exists
 func (mr *MockCacheMockRecorder) Exists(name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockCache)(nil).Exists), name)
 }
 
 // RegisterServiceEventHandler mocks base method
 func (m *MockCache) RegisterServiceEventHandler(handler ServiceEventHandler) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RegisterServiceEventHandler", handler)
 }
 
 // RegisterServiceEventHandler indicates an expected call of RegisterServiceEventHandler
 func (mr *MockCacheMockRecorder) RegisterServiceEventHandler(handler interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterServiceEventHandler", reflect.TypeOf((*MockCache)(nil).RegisterServiceEventHandler), handler)
 }
 
 // RegisterInstanceEventHandler mocks base method
 func (m *MockCache) RegisterInstanceEventHandler(handler InstanceEventHandler) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "RegisterInstanceEventHandler", handler)
 }
 
 // RegisterInstanceEventHandler indicates an expected call of RegisterInstanceEventHandler
 func (mr *MockCacheMockRecorder) RegisterInstanceEventHandler(handler interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterInstanceEventHandler", reflect.TypeOf((*MockCache)(nil).RegisterInstanceEventHandler), handler)
 }
