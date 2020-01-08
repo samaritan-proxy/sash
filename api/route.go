@@ -14,6 +14,8 @@
 
 package api
 
+//go:generate statik -f -src=../web/build/
+
 import (
 	"fmt"
 	"net/http"
@@ -71,6 +73,6 @@ func (s *Server) genRouter() http.Handler {
 	handleSubRoute(apiRoute, routeInstances, s.genInstancesRouter)
 	handleSubRoute(apiRoute, routeProxyConfigs, s.genProxyConfigsRouter)
 
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir(".")))
+	router.PathPrefix("/").Handler(staticFileHandler())
 	return router
 }
