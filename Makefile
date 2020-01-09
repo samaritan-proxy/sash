@@ -6,16 +6,11 @@ ifeq ($(EMBED_FRONT), 1)
 endif
 
 .PHONY: $(notdir $(abspath $(wildcard cmd/*/)))
-$(notdir $(abspath $(wildcard cmd/*/))): before build-web generate
+$(notdir $(abspath $(wildcard cmd/*/))): build-web generate
 	go build -tags "$(BUILD_TAGS)" -o bin/$$(go env GOARCH)-$$(go env GOOS)/$@ ./cmd/$@
 ifneq ($(EMBED_FRONT), 1)
 	cp -R web/build/ bin/$$(go env GOARCH)-$$(go env GOOS)/dist
 endif
-
-.PHONY: before
-before:
-	go install github.com/rakyll/statik github.com/golang/mock/mockgen
-	cd ./web && yarn install && cd ../
 
 .PHONY: clean
 clean:
@@ -24,7 +19,7 @@ clean:
 
 .PHONY:
 build-web:
-	cd ./web && yarn build && cd ../
+	cd ./web && yarn install && yarn build && cd ../
 
 .PHONY: generate
 generate:
