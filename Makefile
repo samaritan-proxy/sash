@@ -14,7 +14,7 @@ endif
 
 .PHONY: before
 before:
-	GO111MODULE=off go get github.com/rakyll/statik
+	go install github.com/rakyll/statik
 	cd ./web && yarn install && cd ../
 
 .PHONY: clean
