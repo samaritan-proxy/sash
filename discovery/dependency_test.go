@@ -131,12 +131,10 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 		ticker := time.NewTicker(time.Millisecond * 10)
 		defer ticker.Stop()
 		for {
-			select {
-			case <-ticker.C:
-				if _, err := server.depCtl.GetCache("svc"); err == nil {
-					close(done)
-					return
-				}
+			<-ticker.C
+			if _, err := server.depCtl.GetCache("svc"); err == nil {
+				close(done)
+				return
 			}
 		}
 	}()
