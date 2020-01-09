@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react';
-import {render} from '@testing-library/react';
-import App from './App';
+import {Time} from "./base";
 
-test('renders learn react link', () => {
-    const {getByText} = render(<App/>);
-    const linkElement = getByText(/learn react/i);
-    expect(linkElement).toBeInTheDocument();
-});
+export interface Dependency extends Time {
+    service_name: string
+    dependencies: string[]
+}

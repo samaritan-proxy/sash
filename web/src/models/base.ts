@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react';
-import {render} from '@testing-library/react';
-import App from './App';
+export interface Time {
+    create_time?: string
+    update_time?: string
+}
 
-test('renders learn react link', () => {
-    const {getByText} = render(<App/>);
-    const linkElement = getByText(/learn react/i);
-    expect(linkElement).toBeInTheDocument();
-});
+export interface SashResponse<T> {
+    page_num: number
+    page_size: number
+    total: number
+    data: T
+}

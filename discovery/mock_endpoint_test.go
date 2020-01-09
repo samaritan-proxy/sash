@@ -37,7 +37,6 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) EXPECT() *MockDiscoveryS
 
 // Context mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) Context() context.Context {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Context")
 	ret0, _ := ret[0].(context.Context)
 	return ret0
@@ -45,13 +44,11 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) Context() context.Contex
 
 // Context indicates an expected call of Context
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).Context))
 }
 
 // Recv mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) Recv() (*api.SvcEndpointDiscoveryRequest, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Recv")
 	ret0, _ := ret[0].(*api.SvcEndpointDiscoveryRequest)
 	ret1, _ := ret[1].(error)
@@ -60,13 +57,11 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) Recv() (*api.SvcEndpoint
 
 // Recv indicates an expected call of Recv
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) Recv() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).Recv))
 }
 
 // RecvMsg mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) RecvMsg(arg0 interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RecvMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -74,13 +69,11 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) RecvMsg(arg0 interface{}
 
 // RecvMsg indicates an expected call of RecvMsg
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) RecvMsg(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecvMsg", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).RecvMsg), arg0)
 }
 
 // Send mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) Send(arg0 *api.SvcEndpointDiscoveryResponse) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Send", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -88,13 +81,11 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) Send(arg0 *api.SvcEndpoi
 
 // Send indicates an expected call of Send
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) Send(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).Send), arg0)
 }
 
 // SendHeader mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) SendHeader(arg0 metadata.MD) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendHeader", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -102,13 +93,11 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) SendHeader(arg0 metadata
 
 // SendHeader indicates an expected call of SendHeader
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) SendHeader(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendHeader", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).SendHeader), arg0)
 }
 
 // SendMsg mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) SendMsg(arg0 interface{}) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -116,13 +105,11 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) SendMsg(arg0 interface{}
 
 // SendMsg indicates an expected call of SendMsg
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) SendMsg(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMsg", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).SendMsg), arg0)
 }
 
 // SetHeader mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) SetHeader(arg0 metadata.MD) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetHeader", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -130,18 +117,15 @@ func (m *MockDiscoveryService_StreamSvcEndpointsServer) SetHeader(arg0 metadata.
 
 // SetHeader indicates an expected call of SetHeader
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) SetHeader(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHeader", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).SetHeader), arg0)
 }
 
 // SetTrailer mocks base method
 func (m *MockDiscoveryService_StreamSvcEndpointsServer) SetTrailer(arg0 metadata.MD) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetTrailer", arg0)
 }
 
 // SetTrailer indicates an expected call of SetTrailer
 func (mr *MockDiscoveryService_StreamSvcEndpointsServerMockRecorder) SetTrailer(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTrailer", reflect.TypeOf((*MockDiscoveryService_StreamSvcEndpointsServer)(nil).SetTrailer), arg0)
 }

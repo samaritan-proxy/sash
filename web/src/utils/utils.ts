@@ -12,17 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react'
+import * as R from 'ramda';
 
-interface HomeState {
+export function validateJSONFormat(rule: any, value: any, callback: any, source?: any, options?: any): any {
+    try {
+        JSON.parse(value)
+    } catch (e) {
+        callback(e)
+    }
+    callback()
 }
 
-interface HomeProps {
+export interface Entry {
+    Key: any
+    Value: any
 }
 
-class Home extends React.Component<HomeProps, HomeState> {
-  render() {
-    return (<div>welcome to use sash</div>)
-  }
+export function Object2Array(obj: object, keyMap?: Map<string, string>): Entry[] {
+    let res: Entry[] = [];
+    R.forEachObjIndexed((v, k) => {
+        res = R.append({
+            Key: keyMap && keyMap.has(k) ? keyMap.get(k) : k,
+            Value: v
+        } as Entry, res)
+    }, obj);
+    return res
 }
-export default Home

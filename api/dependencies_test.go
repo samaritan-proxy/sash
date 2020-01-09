@@ -43,7 +43,7 @@ func TestHandleGetAllDependencies(t *testing.T) {
 					Dependencies: []string{"dep_1", "dep_2"},
 				},
 			},
-			ReqURI: "/dependencies",
+			ReqURI: "/api/dependencies",
 			Resp: `{
 				"data": [
 					{
@@ -71,7 +71,7 @@ func TestHandleGetAllDependencies(t *testing.T) {
 					Dependencies: []string{"dep_3", "dep_4"},
 				},
 			},
-			ReqURI: "/dependencies?service_name=svc_1&dependencies=sth",
+			ReqURI: "/api/dependencies?service_name=svc_1&dependencies=sth",
 			Resp: `{
 				"data": [
 					{
@@ -99,7 +99,7 @@ func TestHandleGetAllDependencies(t *testing.T) {
 					Dependencies: []string{"dep_3", "dep_4"},
 				},
 			},
-			ReqURI: "/dependencies?service_name=re%3Asvc_%5B0-9%5D%2B", // re:svc_[0-9]+
+			ReqURI: "/api/dependencies?service_name=re%3Asvc_%5B0-9%5D%2B", // re:svc_[0-9]+
 			Resp: `{
 				"data": [
 					{
@@ -170,7 +170,7 @@ func TestHandleAddDependency(t *testing.T) {
 				assert.NoError(t, err)
 				b = _b
 			}
-			resp := testHandler(httptest.NewRequest(http.MethodPost, "/dependencies", bytes.NewReader(b)), s)
+			resp := testHandler(httptest.NewRequest(http.MethodPost, "/api/dependencies", bytes.NewReader(b)), s)
 			assert.Equal(t, c.StatusCode, resp.Code)
 		})
 	}
@@ -189,17 +189,17 @@ func TestHandleGetDependency(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	t.Run("not found", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/dependencies/foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/dependencies/foo", nil), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("internal error", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/dependencies/svc_foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/dependencies/svc_foo", nil), s)
 		assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodGet, "/dependencies/svc_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodGet, "/api/dependencies/svc_1", nil), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		assert.JSONEq(t, `{
 						"create_time":"0001-01-01T00:00:00Z",
@@ -225,13 +225,13 @@ func TestHandleUpdateDependency(t *testing.T) {
 		resp := testHandler(
 			httptest.NewRequest(
 				http.MethodPut,
-				"/dependencies/svc_foo",
+				"/api/dependencies/svc_foo",
 				bytes.NewReader([]byte("{}"))), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("bad body", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodPut, "/dependencies/svc_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodPut, "/api/dependencies/svc_1", nil), s)
 		assert.Equal(t, http.StatusBadRequest, resp.Code)
 	})
 
@@ -241,7 +241,7 @@ func TestHandleUpdateDependency(t *testing.T) {
 			"dependencies": ["dep_3", "dep_4"]
 		}`)
 
-		resp := testHandler(httptest.NewRequest(http.MethodPut, "/dependencies/svc_1", bytes.NewReader(body)), s)
+		resp := testHandler(httptest.NewRequest(http.MethodPut, "/api/dependencies/svc_1", bytes.NewReader(body)), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		deps, err := s.depsCtl.Get("svc_1")
 		assert.NoError(t, err)
@@ -261,12 +261,12 @@ func TestHandleDeleteDependency(t *testing.T) {
 	time.Sleep(time.Millisecond * 10)
 
 	t.Run("not found", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/dependencies/svc_foo", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/api/dependencies/svc_foo", nil), s)
 		assert.Equal(t, http.StatusNotFound, resp.Code)
 	})
 
 	t.Run("OK", func(t *testing.T) {
-		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/dependencies/svc_1", nil), s)
+		resp := testHandler(httptest.NewRequest(http.MethodDelete, "/api/dependencies/svc_1", nil), s)
 		assert.Equal(t, http.StatusOK, resp.Code)
 		assert.False(t, s.depsCtl.Exist("svc_1"))
 	})

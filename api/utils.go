@@ -194,6 +194,9 @@ LoopElement:
 				continue
 			}
 			targetValue := r.URL.Query().Get(key)
+			if len(targetValue) == 0 {
+				continue
+			}
 			ok, err := isEqual(targetValue, fv)
 			if err != nil {
 				return nil, err

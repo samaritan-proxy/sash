@@ -12,12 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React from 'react';
-import {render} from '@testing-library/react';
-import App from './App';
+import React from "react";
+import {Button, Result} from "antd";
+import {Link} from "react-router-dom";
 
-test('renders learn react link', () => {
-    const {getByText} = render(<App/>);
-    const linkElement = getByText(/learn react/i);
-    expect(linkElement).toBeInTheDocument();
-});
+class NotFoundPage extends React.Component {
+    render() {
+        return (
+            <Result
+                status="404"
+                title="404"
+                subTitle="Sorry, the page you visited does not exist."
+                extra={<Link to={"/"}> <Button type="primary">Back Home</Button> </Link>}
+            />
+        )
+    }
+}
+
+export default NotFoundPage

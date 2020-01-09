@@ -36,7 +36,7 @@ func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Depende
 	for _, item := range configs {
 		var b []byte
 		if item.Config != nil {
-			_b, err := item.Config.Marshal()
+			_b, err := item.Config.MarshalJSON()
 			assert.NoError(t, err)
 			b = _b
 		}
@@ -365,7 +365,7 @@ func TestController_Trigger(t *testing.T) {
 	})
 }
 
-func TestController_Keys(t *testing.T) {
+func TestController_KeysCached(t *testing.T) {
 	c := NewController(nil)
 	cache := NewCache()
 	cache.Set("ns", "type", "k", []byte("value"))
@@ -373,17 +373,17 @@ func TestController_Keys(t *testing.T) {
 	c.storeCache(cache)
 
 	t.Run("bad namespace", func(t *testing.T) {
-		_, err := c.Keys("foo", "type")
+		_, err := c.KeysCached("foo", "type")
 		assert.Equal(t, ErrNotExist, err)
 	})
 
 	t.Run("bad type", func(t *testing.T) {
-		_, err := c.Keys("ns", "foo")
+		_, err := c.KeysCached("ns", "foo")
 		assert.Equal(t, ErrNotExist, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
-		keys, err := c.Keys("ns", "type")
+		keys, err := c.KeysCached("ns", "type")
 		assert.NoError(t, err)
 		assert.ElementsMatch(t, []string{"k", "k1"}, keys)
 	})

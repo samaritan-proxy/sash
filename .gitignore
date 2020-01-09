@@ -13,3 +13,5 @@
 coverage.txt
 
 bin/*
+config.yaml
+api/statik/

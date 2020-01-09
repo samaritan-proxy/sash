@@ -14,6 +14,8 @@
 
 package api
 
+//go:generate statik -f -src=../web/build/
+
 import (
 	"fmt"
 	"net/http"
@@ -22,6 +24,7 @@ import (
 )
 
 const (
+	apiRoute          = "/api"
 	routeDependencies = "/dependencies"
 	routeInstances    = "/instances"
 	routeProxyConfigs = "/proxy-configs"
@@ -64,9 +67,12 @@ func handleSubRoute(baseRouter *mux.Router, path string, fn func(router *mux.Rou
 
 func (s *Server) genRouter() http.Handler {
 	router := mux.NewRouter()
-	router.HandleFunc(routePing, s.handlePing)
-	handleSubRoute(router, routeDependencies, s.genDependenciesRouter)
-	handleSubRoute(router, routeInstances, s.genInstancesRouter)
-	handleSubRoute(router, routeProxyConfigs, s.genProxyConfigsRouter)
+	apiRoute := router.PathPrefix(apiRoute).Subrouter()
+	apiRoute.HandleFunc(routePing, s.handlePing)
+	handleSubRoute(apiRoute, routeDependencies, s.genDependenciesRouter)
+	handleSubRoute(apiRoute, routeInstances, s.genInstancesRouter)
+	handleSubRoute(apiRoute, routeProxyConfigs, s.genProxyConfigsRouter)
+
+	router.PathPrefix("/").Handler(staticFileHandler())
 	return router
 }

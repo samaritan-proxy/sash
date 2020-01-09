@@ -85,7 +85,7 @@ func TestProxyConfigsController_UnmarshalInstance(t *testing.T) {
 	ctl, cancel := genProxyConfigsController(t, mockCtl)
 	defer cancel()
 
-	b, _ := (&service.Config{Protocol: protocol.TCP}).Marshal()
+	b, _ := (&service.Config{Protocol: protocol.TCP}).MarshalJSON()
 	cases := []struct {
 		Bytes       []byte
 		ProxyConfig *service.Config

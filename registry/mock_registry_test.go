@@ -36,19 +36,16 @@ func (m *MockServiceRegistry) EXPECT() *MockServiceRegistryMockRecorder {
 
 // Run mocks base method
 func (m *MockServiceRegistry) Run(ctx context.Context) {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Run", ctx)
 }
 
 // Run indicates an expected call of Run
 func (mr *MockServiceRegistryMockRecorder) Run(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockServiceRegistry)(nil).Run), ctx)
 }
 
 // List mocks base method
 func (m *MockServiceRegistry) List() ([]string, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -57,13 +54,11 @@ func (m *MockServiceRegistry) List() ([]string, error) {
 
 // List indicates an expected call of List
 func (mr *MockServiceRegistryMockRecorder) List() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockServiceRegistry)(nil).List))
 }
 
 // Get mocks base method
 func (m *MockServiceRegistry) Get(name string) (*model.Service, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", name)
 	ret0, _ := ret[0].(*model.Service)
 	ret1, _ := ret[1].(error)
@@ -72,6 +67,5 @@ func (m *MockServiceRegistry) Get(name string) (*model.Service, error) {
 
 // Get indicates an expected call of Get
 func (mr *MockServiceRegistryMockRecorder) Get(name interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockServiceRegistry)(nil).Get), name)
 }
