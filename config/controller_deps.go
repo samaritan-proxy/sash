@@ -221,7 +221,10 @@ func (c *DependenciesController) handleRawEvent(event *Event) {
 	case EventUpdate:
 		var before, after, incr, decr []string
 		after = rawDeps
-		if dep, ok := c.dependencies[svcName]; ok && dep != nil {
+		c.RLock()
+		dep, ok := c.dependencies[svcName]
+		c.RUnlock()
+		if ok && dep != nil {
 			before = dep.Dependencies
 		}
 		incr, decr = diffSlice(before, after)

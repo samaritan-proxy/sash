@@ -122,6 +122,35 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 	stream1.EXPECT().Send(gomock.Any()).Return(nil)
 	stream2, cancel2 := makeDependenciesStream(ctrl)
 
+	time.Sleep(time.Millisecond * 50)
+
+	assert.NoError(t, store.Add(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(time.Millisecond * 10)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if _, err := server.depCtl.GetCache("svc"); err == nil {
+					close(done)
+					return
+				}
+			}
+		}
+	}()
+	timer := time.NewTimer(time.Second)
+Loop:
+	for {
+		select {
+		case <-timer.C:
+			t.Fatal("timeout")
+		case <-done:
+			break Loop
+		}
+	}
+
 	wg := sync.WaitGroup{}
 
 	wg.Add(1)
@@ -144,9 +173,7 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	assert.NoError(t, store.Add(config.NamespaceService, config.TypeServiceDependency, "svc", []byte(`["dep_1", "dep_2"]`)))
-
-	time.Sleep(time.Millisecond * 30)
+	time.Sleep(time.Millisecond * 100)
 
 	cancel1()
 	cancel2()
