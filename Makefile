@@ -21,3 +21,7 @@ build-web:
 .PHONY: generate
 generate:
 	go generate ./...
+
+.PHONY: run
+run:
+	foreman start || exit 0
