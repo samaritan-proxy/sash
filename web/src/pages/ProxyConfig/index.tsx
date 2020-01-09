@@ -70,11 +70,11 @@ class ProxyConfigPage extends Component<ProxyConfigPageProps, ProxyConfigPageSta
             title: 'Operation',
             render: (record: ProxyConfig) => (
                 <div>
-                    <a onClick={() => {
+                    <a href="javascript:void(0)" onClick={() => {
                         this.props.history.push(`/proxy-configs/${record.service_name}`)
                     }}>Update</a>
                     <Divider type="vertical"/>
-                    <a onClick={this.onClickDeleteButton(record.service_name)}>Delete</a>
+                    <a href="javascript:void(0)" onClick={this.onClickDeleteButton(record.service_name)}>Delete</a>
                 </div>
             ),
         }

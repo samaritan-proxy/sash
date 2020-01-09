@@ -74,9 +74,9 @@ class DependencyPage extends React.Component<DependencyPageProps, DependencyPage
             title: 'Operation',
             render: (record: any) => (
                 <div>
-                    <a onClick={this.onClickUpdateButton(record)}>Update</a>
+                    <a href="javascript:void(0)" onClick={this.onClickUpdateButton(record)}>Update</a>
                     <Divider type="vertical"/>
-                    <a onClick={this.onClickDeleteButton(record.service_name)}>Delete</a>
+                    <a href="javascript:void(0)" onClick={this.onClickDeleteButton(record.service_name)}>Delete</a>
                 </div>
             ),
         }

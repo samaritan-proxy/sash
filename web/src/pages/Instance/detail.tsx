@@ -67,10 +67,6 @@ class InstanceDetailPage extends React.Component<InstanceDetailPageProps<RoutePa
         ["belong_service", "Belong Service"]
     ]);
 
-    constructor(props: InstanceDetailPageProps<RouteParams>) {
-        super(props);
-    }
-
     componentDidMount() {
         this.setState({
             loading: true,
