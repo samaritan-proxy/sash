@@ -14,7 +14,7 @@ endif
 
 .PHONY: before
 before:
-	go install github.com/rakyll/statik
+	go install github.com/rakyll/statik github.com/golang/mock/mockgen
 	cd ./web && yarn install && cd ../
 
 .PHONY: clean
