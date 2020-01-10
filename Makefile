@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 EMBED_FRONT?=1
 BUILD_TAGS?=
 
