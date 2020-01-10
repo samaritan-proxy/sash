@@ -6,20 +6,28 @@ ifeq ($(EMBED_FRONT), 1)
 endif
 
 .PHONY: $(notdir $(abspath $(wildcard cmd/*/)))
-$(notdir $(abspath $(wildcard cmd/*/))): build-web generate
-	go build -tags "$(BUILD_TAGS)" -o bin/$$(go env GOARCH)-$$(go env GOOS)/$@ ./cmd/$@
-ifneq ($(EMBED_FRONT), 1)
-	cp -R web/build/ bin/$$(go env GOARCH)-$$(go env GOOS)/dist
-endif
+$(notdir $(abspath $(wildcard cmd/*/))):
+	@if [[ "$@" == "sash" ]]; then \
+		make build-web statik; \
+	fi
+	@echo "Build $@ GOOS: $$(go env GOARCH), GOARCH: $$(go env GOARCH), EMBED_FRONT: $(EMBED_FRONT)"
+	@go build -tags "$(BUILD_TAGS)" -o bin/$$(go env GOOS)-$$(go env GOARCH)/$@ ./cmd/$@
+	@if [[ "$@" == "sash" ]] && [[ "$(EMBED_FRONT)" -ne 1 ]]; then \
+		cp -R web/build/ bin/$$(go env GOOS)-$$(go env GOARCH)/dist; \
+	fi
 
 .PHONY: clean
 clean:
 	rm -rf bin/
 	rm -rf web/build/
 
-.PHONY:
+.PHONY: build-web
 build-web:
 	cd ./web && yarn install && yarn build && cd ../
+
+.PHONY: statik
+statik:
+	go generate ./api/route.go
 
 .PHONY: generate
 generate:
