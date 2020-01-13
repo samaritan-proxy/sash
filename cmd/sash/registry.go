@@ -19,32 +19,34 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/samaritan-proxy/sash/config"
-	"github.com/samaritan-proxy/sash/config/zk"
+	"github.com/samaritan-proxy/sash/model"
+	"github.com/samaritan-proxy/sash/registry"
+	"github.com/samaritan-proxy/sash/registry/zk"
 )
 
-func initConfig(b *Bootstrap) *config.Controller {
+func initRegistry(b *Bootstrap) registry.Cache {
 	var (
-		store config.Store
-		err   error
+		reg model.ServiceRegistry
+		err error
 	)
 
-	switch typ := b.ConfigStore.Type; typ {
+	switch typ := b.Registry.Type; typ {
 	case "memory":
-		err = errors.New("memory config should only be used in tests")
+		err = errors.New("memory registry should only be used in tests.")
 	case "zk":
-		store, err = zk.New(b.ConfigStore.Spec.(*zk.ConnConfig))
+		reg, err = zk.NewDiscoveryClient(b.Registry.Spec.(*zk.ConnConfig))
 	default:
-		err = fmt.Errorf("unsupported config store '%s'", typ)
+		err = fmt.Errorf("unsupported service registry '%s'", typ)
 	}
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ctl := config.NewController(
-		store,
-		config.SyncInterval(b.ConfigStore.SyncFreq),
-	)
-	return ctl
+	options := []registry.CacheOption{
+		registry.SyncFreq(b.Registry.SyncFreq),
+		registry.SyncJitter(b.Registry.SyncJitter),
+	}
+	cache := registry.NewCache(reg, options...)
+	return cache
 }

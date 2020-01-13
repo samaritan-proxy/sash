@@ -16,136 +16,100 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"flag"
+	"log"
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
+	"time"
 
+	"github.com/go-yaml/yaml"
 	"github.com/samaritan-proxy/sash/api"
 	"github.com/samaritan-proxy/sash/config"
-	cfgmem "github.com/samaritan-proxy/sash/config/memory"
-	cfgzk "github.com/samaritan-proxy/sash/config/zk"
 	"github.com/samaritan-proxy/sash/discovery"
-	"github.com/samaritan-proxy/sash/internal/zk"
 	"github.com/samaritan-proxy/sash/logger"
-	"github.com/samaritan-proxy/sash/model"
 	"github.com/samaritan-proxy/sash/registry"
-	regmem "github.com/samaritan-proxy/sash/registry/memory"
-	regzk "github.com/samaritan-proxy/sash/registry/zk"
 )
+
+var (
+	b = &Bootstrap{
+		ConfigStore: ConfigStore{
+			SyncFreq: time.Second * 5,
+		},
+		Registry: Registry{
+			SyncFreq:   time.Second * 5,
+			SyncJitter: 0.1,
+		},
+		API:       API{Bind: ":8882"},
+		Discovery: Discovery{Bind: ":9090"},
+		LogLevel:  "info",
+	}
+
+	configFile string
+)
+
+func parseFlags() {
+	flag.StringVar(&configFile, "c", "./config.yaml", "config file")
+	flag.Parse()
+
+	f, err := os.Open(configFile)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	if err = yaml.NewDecoder(f).Decode(&b); err != nil {
+		logger.Fatal(err)
+	}
+}
 
 func init() {
 	parseFlags()
 }
 
-var (
-	signals = []os.Signal{syscall.SIGINT, syscall.SIGTERM}
-)
-
-func newServiceRegistry() (model.ServiceRegistry, error) {
-	switch typ := bootstrap.Registry.Type; typ {
-	case "memory":
-		logger.Warnf("discovery will run in in-memory mode, only for test")
-		return regmem.NewRegistry(), nil
-	case "zk":
-		return regzk.NewDiscoveryClient(bootstrap.Registry.Spec.(*zk.ConnConfig))
-	default:
-		return nil, fmt.Errorf("unknown type of service registry: %s", typ)
+func initDiscoveryServer(b *Bootstrap, reg registry.Cache, cfg *config.Controller) *discovery.Server {
+	l, err := net.Listen("tcp", b.Discovery.Bind)
+	if err != nil {
+		log.Fatal(err)
 	}
+	s := discovery.NewServer(l, reg, cfg)
+	return s
 }
 
-func newConfigStore() (config.Store, error) {
-	switch typ := bootstrap.ConfigStore.Type; typ {
-	case "memory":
-		logger.Warnf("config store will run in in-memory mode, only for test")
-		return cfgmem.NewMemStore(), nil
-	case "zk":
-		return cfgzk.New(bootstrap.ConfigStore.Spec.(*zk.ConnConfig))
-	default:
-		return nil, fmt.Errorf("unknown type of config store: %s", typ)
+func initAPIServer(b *Bootstrap, reg registry.Cache, cfg *config.Controller) *api.Server {
+	l, err := net.Listen("tcp", b.API.Bind)
+	if err != nil {
+		log.Fatal(err)
 	}
-}
-
-func newListener(addr string) (net.Listener, error) {
-	return net.Listen("tcp", addr)
+	s := api.New(l, reg, cfg)
+	return s
 }
 
 func main() {
-	logger.SetLevel(bootstrap.LogLevel)
-	logger.Debugf("rootConfig: %+v", bootstrap)
+	logger.SetLevel(b.LogLevel)
+	logger.Debugf("bootstrap: %+v", b)
 
-	wg := sync.WaitGroup{}
+	reg := initRegistry(b)
+	cfg := initConfig(b)
+	ds := initDiscoveryServer(b, reg, cfg)
+	as := initAPIServer(b, reg, cfg)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	serviceRegistry, err := newServiceRegistry()
-	if err != nil {
-		logger.Fatal(err)
+	if err := cfg.Start(); err != nil {
+		log.Fatal(err)
 	}
-
-	store, err := newConfigStore()
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	ln, err := newListener(bootstrap.Discovery.Bind)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	ctx, cancel := context.WithCancel(context.TODO())
-
-	reg := registry.NewCache(
-		serviceRegistry,
-		registry.SyncFreq(bootstrap.Registry.SyncFreq),
-		registry.SyncJitter(bootstrap.Registry.SyncJitter))
-	ctl := config.NewController(store, config.Interval(bootstrap.ConfigStore.SyncFreq))
-	api := api.New(bootstrap.API.Bind, reg, ctl)
-	rpc := discovery.NewServer(ln, reg, ctl)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		serviceRegistry.Run(ctx)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reg.Run(ctx)
-	}()
-
-	if err := ctl.Start(); err != nil {
-		logger.Fatal(err)
-	}
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		logger.Infof("HTTP API serve at: %s", bootstrap.API.Bind)
-		if err := api.Start(); err != nil {
-			logger.Fatal(err)
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		logger.Infof("Discovery RPC serve at: %s", bootstrap.Discovery.Bind)
-		if err := rpc.Serve(); err != nil {
-			logger.Fatal(err)
-		}
+	defer cfg.Stop()
+	go reg.Run(ctx)
+	go ds.Serve()
+	go as.Serve()
+	defer func() {
+		ds.Stop()
+		as.Shutdown()
 	}()
 
 	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, signals...)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
 	s := <-signalCh
 	logger.Info("Signal received: ", s)
-
 	cancel()
-	api.Stop()
-	rpc.Stop()
-	ctl.Stop()
-
-	wg.Wait()
 }

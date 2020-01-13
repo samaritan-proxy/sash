@@ -199,7 +199,7 @@ func TestConfigDiscoveryServerHandleSubscribe(t *testing.T) {
 	stream := makeSvcConfigsStream(ctrl)
 	session := newConfigDiscoverySession(stream)
 
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond))
+	ctl := config.NewController(memory.NewStore(), config.SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
 	assert.NoError(t, ctl.Add(config.NamespaceService, config.TypeServiceProxyConfig, "foo", nil))
@@ -230,7 +230,7 @@ func TestConfigDiscoveryServerHandleUnsubscribe(t *testing.T) {
 	stream2 := makeSvcConfigsStream(ctrl)
 	session2 := newConfigDiscoverySession(stream2)
 
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Second))
+	ctl := config.NewController(memory.NewStore(), config.SyncInterval(time.Second))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
 	time.Sleep(time.Millisecond * 1500)
@@ -253,7 +253,7 @@ func TestConfigDiscoveryServerStreamSvcConfigs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Second))
+	ctl := config.NewController(memory.NewStore(), config.SyncInterval(time.Second))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
 	time.Sleep(time.Millisecond * 1500)

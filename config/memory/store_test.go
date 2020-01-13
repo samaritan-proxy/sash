@@ -24,7 +24,7 @@ import (
 )
 
 func TestGetAndAdd(t *testing.T) {
-	s := NewMemStore()
+	s := NewStore()
 	assert.NoError(t, s.Start())
 	defer s.Stop()
 
@@ -54,7 +54,7 @@ func TestGetAndAdd(t *testing.T) {
 }
 
 func TestDel(t *testing.T) {
-	s := NewMemStore()
+	s := NewStore()
 	assert.NoError(t, s.Start())
 	defer s.Stop()
 
@@ -65,7 +65,7 @@ func TestDel(t *testing.T) {
 }
 
 func TestGetKeys(t *testing.T) {
-	s := NewMemStore()
+	s := NewStore()
 	assert.NoError(t, s.Start())
 	defer s.Stop()
 
@@ -85,7 +85,7 @@ func TestGetKeys(t *testing.T) {
 }
 
 func TestSubscribeAndUnSubscribe(t *testing.T) {
-	s := NewMemStore()
+	s := NewStore()
 	assert.NoError(t, s.Start())
 	defer s.Stop()
 

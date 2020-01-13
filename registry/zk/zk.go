@@ -24,6 +24,8 @@ import (
 	"github.com/samaritan-proxy/sash/model"
 )
 
+type ConnConfig = zk.ConnConfig
+
 // InstanceUnmarshaler unmarshals raw byte array which is stored
 // in the underlying registry into a service instance. JSONInstanceUnmarshaler
 // is the default implementation, could customize according to demands.
@@ -59,7 +61,7 @@ type DiscoveryClient struct {
 }
 
 // NewDiscoveryClient creates a discovery client with given parameters.
-func NewDiscoveryClient(connCfg *zk.ConnConfig, options ...discoveryClientOption) (*DiscoveryClient, error) {
+func NewDiscoveryClient(connCfg *ConnConfig, options ...discoveryClientOption) (*DiscoveryClient, error) {
 	conn, err := zk.CreateConn(connCfg, false)
 	if err != nil {
 		return nil, err

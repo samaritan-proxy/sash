@@ -110,9 +110,9 @@ func TestDependenciesDiscoverySessionServeInitPush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	store := memory.NewMemStore()
+	store := memory.NewStore()
 
-	ctl := config.NewController(store, config.Interval(time.Millisecond))
+	ctl := config.NewController(store, config.SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
 
@@ -182,7 +182,7 @@ func TestDependenciesDiscoverySessionServe(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctl := config.NewController(memory.NewMemStore(), config.Interval(time.Millisecond))
+	ctl := config.NewController(memory.NewStore(), config.SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	defer ctl.Stop()
 	time.Sleep(time.Millisecond * 10)

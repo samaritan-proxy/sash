@@ -47,7 +47,7 @@ func TestSortInstances(t *testing.T) {
 
 func genInstancesController(t *testing.T, mockCtl *gomock.Controller, insts ...*Instance) (*InstancesController, func()) {
 	store := genMockStore(t, mockCtl, nil, nil, insts)
-	ctl := NewController(store, Interval(time.Millisecond))
+	ctl := NewController(store, SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	time.Sleep(time.Millisecond)
 	return ctl.Instances(), ctl.Stop

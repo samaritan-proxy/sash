@@ -21,31 +21,31 @@ import (
 	"github.com/samaritan-proxy/sash/config"
 )
 
-// MemStore is a in memory implement of Store.
-type MemStore struct {
+// Store is a in memory implement of Store.
+type Store struct {
 	sync.RWMutex
 	evtCh       chan struct{}
 	configs     *config.Cache
 	subscribeNS map[string]struct{}
 }
 
-// NewMemStore return a new MemStore.
-func NewMemStore() *MemStore {
-	return &MemStore{
+// NewStore return a new Store.
+func NewStore() *Store {
+	return &Store{
 		evtCh:       make(chan struct{}, 64),
 		configs:     config.NewCache(),
 		subscribeNS: make(map[string]struct{}),
 	}
 }
 
-func (s *MemStore) Get(namespace, typ, key string) ([]byte, error) {
+func (s *Store) Get(namespace, typ, key string) ([]byte, error) {
 	s.RLock()
 	defer s.RUnlock()
 
 	return s.configs.Get(namespace, typ, key)
 }
 
-func (s *MemStore) Add(namespace, typ, key string, value []byte) error {
+func (s *Store) Add(namespace, typ, key string, value []byte) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -65,7 +65,7 @@ func (s *MemStore) Add(namespace, typ, key string, value []byte) error {
 	return nil
 }
 
-func (s *MemStore) Update(namespace, typ, key string, value []byte) error {
+func (s *Store) Update(namespace, typ, key string, value []byte) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -86,7 +86,7 @@ func (s *MemStore) Update(namespace, typ, key string, value []byte) error {
 	return nil
 }
 
-func (s *MemStore) Del(namespace, typ, key string) error {
+func (s *Store) Del(namespace, typ, key string) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -99,7 +99,7 @@ func (s *MemStore) Del(namespace, typ, key string) error {
 	return nil
 }
 
-func (s *MemStore) Exist(namespace, typ, key string) bool {
+func (s *Store) Exist(namespace, typ, key string) bool {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -107,31 +107,31 @@ func (s *MemStore) Exist(namespace, typ, key string) bool {
 	return err == nil
 }
 
-func (s *MemStore) GetKeys(namespace, typ string) ([]string, error) {
+func (s *Store) GetKeys(namespace, typ string) ([]string, error) {
 	s.RLock()
 	defer s.RUnlock()
 
 	return s.configs.Keys(namespace, typ)
 }
 
-func (s *MemStore) Subscribe(namespace string) error {
+func (s *Store) Subscribe(namespace string) error {
 	s.Lock()
 	defer s.Unlock()
 	s.subscribeNS[namespace] = struct{}{}
 	return nil
 }
 
-func (s *MemStore) UnSubscribe(namespace string) error {
+func (s *Store) UnSubscribe(namespace string) error {
 	s.Lock()
 	defer s.Unlock()
 	delete(s.subscribeNS, namespace)
 	return nil
 }
 
-func (s *MemStore) Event() <-chan struct{} {
+func (s *Store) Event() <-chan struct{} {
 	return s.evtCh
 }
 
-func (s *MemStore) Start() error { return nil }
+func (s *Store) Start() error { return nil }
 
-func (s *MemStore) Stop() {}
+func (s *Store) Stop() {}

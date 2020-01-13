@@ -24,6 +24,8 @@ import (
 	"github.com/samaritan-proxy/sash/internal/zk"
 )
 
+type ConnConfig = zk.ConnConfig
+
 type Store struct {
 	connCfg *zk.ConnConfig
 	conn    zk.Conn
@@ -31,7 +33,7 @@ type Store struct {
 	basePath string
 }
 
-func New(connCfg *zk.ConnConfig) (*Store, error) {
+func New(connCfg *ConnConfig) (*Store, error) {
 	conn, err := zk.CreateConn(connCfg, true)
 	if err != nil {
 		return nil, err

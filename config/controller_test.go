@@ -330,7 +330,7 @@ func TestController_Trigger(t *testing.T) {
 
 	t.Run("Store", func(t *testing.T) {
 		s := NewMockStore(ctrl)
-		c := NewController(s, Interval(500*time.Millisecond))
+		c := NewController(s, SyncInterval(500*time.Millisecond))
 		c.wg.Add(1)
 		assert.Empty(t, c.updateCh)
 		go func() {

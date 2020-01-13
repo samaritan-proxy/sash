@@ -64,7 +64,7 @@ func TestSortDependencies(t *testing.T) {
 
 func genDependenciesController(t *testing.T, mockCtl *gomock.Controller, deps ...*Dependency) (*DependenciesController, func()) {
 	store := genMockStore(t, mockCtl, deps, nil, nil)
-	ctl := NewController(store, Interval(time.Millisecond))
+	ctl := NewController(store, SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	time.Sleep(time.Millisecond)
 	return ctl.Dependencies(), ctl.Stop

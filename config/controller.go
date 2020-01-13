@@ -51,20 +51,20 @@ var (
 )
 
 type controllerOptions struct {
-	interval time.Duration
+	syncInterval time.Duration
 }
 
 func defaultControllerOptions() *controllerOptions {
 	return &controllerOptions{
-		interval: time.Second * 10,
+		syncInterval: time.Second * 10,
 	}
 }
 
 type controllerOption func(o *controllerOptions)
 
-func Interval(interval time.Duration) controllerOption {
+func SyncInterval(interval time.Duration) controllerOption {
 	return func(o *controllerOptions) {
-		o.interval = interval
+		o.syncInterval = interval
 	}
 }
 
@@ -251,7 +251,7 @@ func (c *Controller) triggerUpdate() {
 }
 
 func (c *Controller) triggerLoop() {
-	ticker := time.NewTicker(c.options.interval)
+	ticker := time.NewTicker(c.options.syncInterval)
 	defer func() {
 		ticker.Stop()
 		c.wg.Done()

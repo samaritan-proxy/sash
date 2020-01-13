@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,9 +18,14 @@ import (
 
 func newTestServer(t *testing.T, opts ...ServerOption) *Server {
 	reg := registry.NewCache(regmem.NewRegistry())
-	ctl := config.NewController(cfgmem.NewMemStore(), config.Interval(time.Millisecond))
+	ctl := config.NewController(cfgmem.NewStore(), config.SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
-	return New("127.0.0.1:18882", reg, ctl, opts...)
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return New(l, reg, ctl, opts...)
 }
 
 func testHandler(req *http.Request, server *Server) *httptest.ResponseRecorder {
@@ -72,12 +79,13 @@ func TestServer(t *testing.T) {
 	s := newTestServer(t)
 
 	go func() {
-		assert.NoError(t, s.Start())
+		assert.NoError(t, s.Serve())
 	}()
 
-	resp, err := http.Get("http://127.0.0.1:18882/api/ping")
+	url := fmt.Sprintf("http://%s/api/ping", s.Addr())
+	resp, err := http.Get(url)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	assertDoNotTimeout(t, s.Stop, time.Second)
+	assertDoNotTimeout(t, s.Shutdown, time.Second)
 }

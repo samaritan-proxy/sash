@@ -37,3 +37,7 @@ generate:
 .PHONY: run
 run:
 	foreman start || exit 0
+
+.PHONY: test
+test:
+	go test -race -coverprofile=coverage.txt -covermode=atomic ./...
