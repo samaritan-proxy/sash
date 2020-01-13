@@ -137,6 +137,11 @@ func TestController_FetchAllWithError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	// mock backoff max retries
+	oldMaxRetries := defaultBackoffMaxRetries
+	defaultBackoffMaxRetries = 2
+	defer func() { defaultBackoffMaxRetries = oldMaxRetries }()
+
 	t.Run("GetKeys", func(t *testing.T) {
 		s := NewMockStore(ctrl)
 		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return(nil, errors.New("err")).AnyTimes()
@@ -315,13 +320,6 @@ func TestController_TriggerUpdate(t *testing.T) {
 	default:
 		t.Fatal("updateCh is empty")
 	}
-}
-
-func TestController_RegisterEventHandler(t *testing.T) {
-	c := NewController(nil)
-	assert.Empty(t, c.evtHdls)
-	c.RegisterEventHandler(func(event *Event) {})
-	assert.Len(t, c.loadEvtHdls(), 1)
 }
 
 func TestController_Trigger(t *testing.T) {

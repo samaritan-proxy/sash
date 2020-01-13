@@ -51,8 +51,8 @@ type ProxyConfigsController struct {
 	ctl *Controller
 }
 
-func (c *Controller) ProxyConfigs() *ProxyConfigsController {
-	return &ProxyConfigsController{ctl: c}
+func newProxyConfigController(ctl *Controller) *ProxyConfigsController {
+	return &ProxyConfigsController{ctl: ctl}
 }
 
 func (*ProxyConfigsController) getNamespace() string { return NamespaceService }

@@ -71,19 +71,20 @@ func SyncInterval(interval time.Duration) controllerOption {
 // Controller is used to store configuration information.
 type Controller struct {
 	sync.Mutex
-	store    Store
-	updateCh chan struct{}
-
-	cache atomic.Value // *Config
-
 	options *controllerOptions
+	store   Store
 
-	evtHdls atomic.Value //[]EventHandler
+	cache    atomic.Value // *Config
+	updateCh chan struct{}
+	evtHdls  atomic.Value //[]EventHandler
 
-	stop chan struct{}
-	wg   sync.WaitGroup
+	dep      *DependenciesController
+	inst     *InstancesController
+	proxycfg *ProxyConfigsController
 
 	initFinish bool
+	stop       chan struct{}
+	wg         sync.WaitGroup
 }
 
 // NewController return a new Controller.
@@ -100,14 +101,26 @@ func NewController(store Store, opts ...controllerOption) *Controller {
 		stop:     make(chan struct{}),
 		cache:    atomic.Value{},
 	}
+	c.dep = newDependenciesController(c)
+	c.inst = newInstancesController(c)
+	c.proxycfg = newProxyConfigController(c)
 	return c
 }
 
+func (c *Controller) Dependencies() *DependenciesController {
+	return c.dep
+}
+
+func (c *Controller) Instances() *InstancesController {
+	return c.inst
+}
+
+func (c *Controller) ProxyConfigs() *ProxyConfigsController {
+	return c.proxycfg
+}
+
 func (c *Controller) loadCache() *Cache {
-	cache, ok := c.cache.Load().(*Cache)
-	if !ok {
-		return nil
-	}
+	cache, _ := c.cache.Load().(*Cache)
 	return cache
 }
 
@@ -116,10 +129,7 @@ func (c *Controller) storeCache(cfg *Cache) {
 }
 
 func (c *Controller) loadEvtHdls() []EventHandler {
-	hdls, ok := c.evtHdls.Load().([]EventHandler)
-	if !ok {
-		return nil
-	}
+	hdls, _ := c.evtHdls.Load().([]EventHandler)
 	return hdls
 }
 
