@@ -8,13 +8,14 @@ endif
 
 .PHONY: $(notdir $(abspath $(wildcard cmd/*/)))
 $(notdir $(abspath $(wildcard cmd/*/))):
-	@if [[ "$@" == "sash" ]]; then \
+	@if [[ "$@" == "sash" ]] && [[ "$(EMBED_FRONT)" -eq 1 ]]; then \
 		make build-web statik; \
 	fi
-	@echo "Build $@ GOOS: $$(go env GOARCH), GOARCH: $$(go env GOARCH), EMBED_FRONT: $(EMBED_FRONT)"
-	@go build -tags "$(BUILD_TAGS)" -o bin/$$(go env GOOS)-$$(go env GOARCH)/$@ ./cmd/$@
+	$(eval OUTPUT=$(shell echo "bin/$$(go env GOOS)-$$(go env GOARCH)"))
+	@echo "Build $@, GOOS: $$(go env GOOS), GOARCH: $$(go env GOARCH), EMBED_FRONT: $(EMBED_FRONT), OUTPUT: $(OUTPUT)/$@"
+	@go build -tags "$(BUILD_TAGS)" -o "$(OUTPUT)/$@" ./cmd/$@
 	@if [[ "$@" == "sash" ]] && [[ "$(EMBED_FRONT)" -ne 1 ]]; then \
-		cp -R web/build/ bin/$$(go env GOOS)-$$(go env GOARCH)/dist; \
+		cp -R web/build/ $(OUTPUT)/dist; \
 	fi
 
 .PHONY: clean
