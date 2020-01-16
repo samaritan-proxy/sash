@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/samaritan-proxy/sash/config"
+	"github.com/samaritan-proxy/sash/logger"
 	"github.com/samaritan-proxy/sash/registry"
 )
 
@@ -83,6 +84,7 @@ func (s *Server) grpcOptions() []grpc.ServerOption {
 }
 
 func (s *Server) Serve() error {
+	logger.Infof("Discovery server listening on %s...", s.l.Addr())
 	return s.g.Serve(s.l)
 }
 

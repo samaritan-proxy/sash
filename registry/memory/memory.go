@@ -22,7 +22,7 @@ import (
 
 var _ model.ServiceRegistry = new(Registry)
 
-// Register is an implementation of model.ServiceRegistry.
+// Registry is an implementation of model.ServiceRegistry.
 type Registry struct {
 	services map[string]*model.Service
 }

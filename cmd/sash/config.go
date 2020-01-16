@@ -23,7 +23,7 @@ import (
 	"github.com/samaritan-proxy/sash/config/zk"
 )
 
-func initConfig(b *Bootstrap) *config.Controller {
+func initConfigController(b *Bootstrap) *config.Controller {
 	var (
 		store config.Store
 		err   error

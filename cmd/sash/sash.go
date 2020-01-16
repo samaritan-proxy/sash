@@ -61,6 +61,8 @@ func parseFlags() {
 	if err = yaml.NewDecoder(f).Decode(&b); err != nil {
 		logger.Fatal(err)
 	}
+
+	// TODO: verify and fix the bootstrap info.
 }
 
 func init() {
@@ -87,19 +89,20 @@ func initAPIServer(b *Bootstrap, reg registry.Cache, cfg *config.Controller) *ap
 
 func main() {
 	logger.SetLevel(b.LogLevel)
+	// TODO: make the print info more pretty
 	logger.Debugf("bootstrap: %+v", b)
 
-	reg := initRegistry(b)
-	cfg := initConfig(b)
-	ds := initDiscoveryServer(b, reg, cfg)
-	as := initAPIServer(b, reg, cfg)
+	regCtl := initRegistryController(b)
+	cfgCtl := initConfigController(b)
+	ds := initDiscoveryServer(b, regCtl, cfgCtl)
+	as := initAPIServer(b, regCtl, cfgCtl)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	if err := cfg.Start(); err != nil {
+	if err := cfgCtl.Start(); err != nil {
 		log.Fatal(err)
 	}
-	defer cfg.Stop()
-	go reg.Run(ctx)
+	defer cfgCtl.Stop()
+	go regCtl.Run(ctx)
 	go ds.Serve()
 	go as.Serve()
 	defer func() {

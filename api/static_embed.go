@@ -12,7 +12,7 @@ import (
 )
 
 func staticFileHandler() http.Handler {
-	logger.Infof("use integrated mode")
+	logger.Infof("Embeded the static files of front")
 	statikFS, err := fs.New()
 	if err != nil {
 		logger.Fatal(err)
