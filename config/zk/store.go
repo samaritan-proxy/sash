@@ -106,7 +106,7 @@ func (s *Store) GetKeys(namespace, typ string) ([]string, error) {
 	case nil:
 		return nodes, err
 	case zkpkg.ErrNoNode:
-		return nil, config.ErrNotExist
+		return nil, nil
 	default:
 		return nil, err
 	}
