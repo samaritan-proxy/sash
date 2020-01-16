@@ -48,13 +48,12 @@ type InstancesController struct {
 	ctl *Controller
 }
 
-func (c *Controller) Instances() *InstancesController {
-	return &InstancesController{ctl: c}
+func newInstancesController(ctl *Controller) *InstancesController {
+	return &InstancesController{ctl: ctl}
 }
 
+func (*InstancesController) getType() string      { return TypeSamaritanInstance }
 func (*InstancesController) getNamespace() string { return NamespaceSamaritan }
-
-func (*InstancesController) getType() string { return TypeSamaritanInstance }
 
 func (*InstancesController) unmarshalInstance(b []byte) (*Instance, error) {
 	inst := new(Instance)

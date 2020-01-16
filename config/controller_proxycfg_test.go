@@ -52,7 +52,7 @@ func TestSortProxyConfigs(t *testing.T) {
 
 func genProxyConfigsController(t *testing.T, mockCtl *gomock.Controller, configs ...*ProxyConfig) (*ProxyConfigsController, func()) {
 	store := genMockStore(t, mockCtl, nil, configs, nil)
-	ctl := NewController(store, Interval(time.Millisecond))
+	ctl := NewController(store, SyncInterval(time.Millisecond))
 	assert.NoError(t, ctl.Start())
 	time.Sleep(time.Millisecond)
 	return ctl.ProxyConfigs(), ctl.Stop

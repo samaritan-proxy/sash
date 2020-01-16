@@ -13,5 +13,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tevino/log v0.0.0-20191011110715-a95875091fd9
 	go.uber.org/atomic v1.5.0
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	google.golang.org/grpc v1.23.1
+	gopkg.in/yaml.v2 v2.2.7 // indirect
 )

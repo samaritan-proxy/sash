@@ -38,7 +38,7 @@ func TestStreamSvcEndpoints(t *testing.T) {
 		model.NewService("foo", model.NewServiceInstance("127.0.0.1", 8888)),
 	)
 	regCache := registry.NewCache(reg)
-	ctrl := config.NewController(cfgmem.NewMemStore())
+	ctrl := config.NewController(cfgmem.NewStore())
 
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

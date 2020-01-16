@@ -52,7 +52,7 @@ type DependenciesController struct {
 	handlers     atomic.Value //[]DependencyEventHandler
 }
 
-func (c *Controller) Dependencies() *DependenciesController {
+func newDependenciesController(c *Controller) *DependenciesController {
 	depCtl := &DependenciesController{
 		ctl:          c,
 		dependencies: make(map[string]*Dependency),

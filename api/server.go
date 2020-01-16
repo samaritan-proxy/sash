@@ -16,6 +16,7 @@ package api
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
@@ -58,23 +59,24 @@ func IdleTimeout(d time.Duration) ServerOption {
 }
 
 type Server struct {
+	l       net.Listener
 	hs      *http.Server
 	options *serverOptions
 
-	reg registry.Cache
-
+	reg         registry.Cache
 	rawCtl      *config.Controller
 	depsCtl     *config.DependenciesController
 	proxyCfgCtl *config.ProxyConfigsController
 	instCtl     *config.InstancesController
 }
 
-func New(addr string, reg registry.Cache, ctl *config.Controller, opts ...ServerOption) *Server {
+func New(l net.Listener, reg registry.Cache, ctl *config.Controller, opts ...ServerOption) *Server {
 	options := new(serverOptions)
 	for _, opt := range opts {
 		opt(options)
 	}
 	s := &Server{
+		l:           l,
 		reg:         reg,
 		rawCtl:      ctl,
 		depsCtl:     ctl.Dependencies(),
@@ -82,7 +84,6 @@ func New(addr string, reg registry.Cache, ctl *config.Controller, opts ...Server
 		instCtl:     ctl.Instances(),
 		options:     options,
 		hs: &http.Server{
-			Addr:              addr,
 			ReadTimeout:       options.ReadTimeout,
 			ReadHeaderTimeout: options.ReadHeaderTimeout,
 			WriteTimeout:      options.WriteTimeout,
@@ -93,8 +94,12 @@ func New(addr string, reg registry.Cache, ctl *config.Controller, opts ...Server
 	return s
 }
 
-func (s *Server) Start() error {
-	switch err := s.hs.ListenAndServe(); err {
+func (s *Server) Addr() string {
+	return s.l.Addr().String()
+}
+
+func (s *Server) Serve() error {
+	switch err := s.hs.Serve(s.l); err {
 	case nil, http.ErrServerClosed:
 		return nil
 	default:
@@ -103,10 +108,9 @@ func (s *Server) Start() error {
 	}
 }
 
-func (s *Server) Stop() {
-	//nolint:lostcancel
-	ctx, _ := context.WithTimeout(context.TODO(), time.Second)
+func (s *Server) Shutdown() {
+	ctx, _ := context.WithTimeout(context.TODO(), time.Second) //nolint:lostcancel
 	if err := s.hs.Shutdown(ctx); err != nil {
-		logger.Warnf("failed to stop server, err: %v", err)
+		logger.Warnf("Error when shutdowning the api server: %v", err)
 	}
 }
