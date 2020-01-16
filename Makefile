@@ -2,6 +2,9 @@ SHELL := /bin/bash
 EMBED_FRONT?=1
 BUILD_TAGS?=
 
+export GOBIN=$(shell pwd)/bin
+export PATH:=$(GOBIN):$(PATH)
+
 ifeq ($(EMBED_FRONT), 1)
 	BUILD_TAGS:=embed_front $(BUILD_TAGS)
 endif
@@ -22,6 +25,11 @@ $(notdir $(abspath $(wildcard cmd/*/))):
 clean:
 	rm -rf bin/
 	rm -rf web/build/
+
+.PHONY: tools
+tools:
+	go get github.com/golang/mock/mockgen
+	go get github.com/rakyll/statik
 
 .PHONY: build-web
 build-web:
