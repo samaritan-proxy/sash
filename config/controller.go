@@ -283,8 +283,13 @@ func (c *Controller) triggerLoop() {
 	}
 }
 
-func (c *Controller) diff(that *Cache) {
-	add, update, del := c.loadCache().Diff(that)
+func (c *Controller) diffCache(that *Cache) {
+	cur := c.loadCache()
+	if cur == nil {
+		cur = NewCache()
+	}
+
+	add, update, del := cur.Diff(that)
 	dispatchEvent := func(event *Event) {
 		for _, hdl := range c.loadEvtHdls() {
 			hdl(event)
@@ -313,11 +318,7 @@ func (c *Controller) loop() {
 				logger.Warnf("failed to load config, err: %v", err)
 				continue
 			}
-			if c.initFinish {
-				c.diff(newConf)
-			} else {
-				c.initFinish = true
-			}
+			c.diffCache(newConf)
 			c.storeCache(newConf)
 		}
 	}
@@ -328,7 +329,7 @@ func (c *Controller) RegisterEventHandler(handler EventHandler) {
 	c.Lock()
 	defer c.Unlock()
 	oldEvtHdls := c.loadEvtHdls()
-	newEvtHdls := make([]EventHandler, 0, len(oldEvtHdls)+1)
+	newEvtHdls := make([]EventHandler, len(oldEvtHdls), len(oldEvtHdls)+1)
 	copy(newEvtHdls, oldEvtHdls)
 	newEvtHdls = append(newEvtHdls, handler)
 	c.evtHdls.Store(newEvtHdls)

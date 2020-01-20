@@ -118,6 +118,7 @@ func (session *endpointDiscoverySession) SetUnsubscribeHandler(hdlr endpointUnsu
 }
 
 func (session *endpointDiscoverySession) Serve() {
+	logger.Debugf("Serve endpoint discovery session %s", session.remote.Addr)
 	recvDone := make(chan struct{})
 	defer func() {
 		close(session.quit)

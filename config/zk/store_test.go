@@ -133,11 +133,12 @@ func TestStore_GetKeys(t *testing.T) {
 	conn.EXPECT().Children(gomock.Not(gomock.Eq("/configs/ns/type"))).Return(nil, nil, zkpkg.ErrNoNode)
 	conn.EXPECT().Children("/configs/ns/type").Return([]string{"key1", "key2"}, nil, nil)
 
-	t.Run("no node error", func(t *testing.T) {
+	t.Run("no node", func(t *testing.T) {
 		s, err := NewWithConn(conn, "/configs")
 		assert.NoError(t, err)
-		_, err = s.GetKeys("ns", "type1")
-		assert.Equal(t, config.ErrNotExist, err)
+		keys, err := s.GetKeys("ns", "type1")
+		assert.NoError(t, err)
+		assert.Empty(t, keys)
 	})
 
 	t.Run("other error", func(t *testing.T) {

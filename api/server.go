@@ -99,6 +99,7 @@ func (s *Server) Addr() string {
 }
 
 func (s *Server) Serve() error {
+	logger.Infof("API server listening on %s...", s.Addr())
 	switch err := s.hs.Serve(s.l); err {
 	case nil, http.ErrServerClosed:
 		return nil

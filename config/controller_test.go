@@ -185,7 +185,7 @@ func TestController_Diff(t *testing.T) {
 	cache.Set("ns", "type", "k", []byte("value"))
 	cache.Set("ns", "type", "k1", []byte("hi"))
 	cache.Set("ns", "type", "k3", []byte("hello"))
-	c.diff(cache)
+	c.diffCache(cache)
 
 	assert.Equal(t, 1, add)
 	assert.Equal(t, 1, update)

@@ -52,6 +52,8 @@ func (c *ConfigStore) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	c.Type = s.Type
 	c.SyncFreq = s.SyncFreq
 
+	// TODO: To improve the maintainability, we should unmarshal spec to
+	// the actual structure when intializes the corresponding config store.
 	switch s.Type {
 	case "memory":
 		c.Spec = nil
@@ -89,6 +91,8 @@ func (r *Registry) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	r.SyncFreq = s.SyncFreq
 	r.SyncJitter = s.SyncJitter
 
+	// TODO: To improve the maintainability, we should unmarshal spec to
+	// the actual structure when intializes the corresponding service registry.
 	switch s.Type {
 	case "memory":
 		r.Spec = nil
@@ -113,9 +117,9 @@ type Discovery struct {
 }
 
 type Bootstrap struct {
-	ConfigStore ConfigStore `yaml:"config_store"`
-	Registry    Registry    `yaml:"registry"`
+	LogLevel    string      `yaml:"log_level"`
 	API         API         `yaml:"api"`
 	Discovery   Discovery   `yaml:"discovery"`
-	LogLevel    string      `yaml:"log_level"`
+	ConfigStore ConfigStore `yaml:"config_store"`
+	Registry    Registry    `yaml:"service_registry"`
 }
