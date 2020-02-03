@@ -27,7 +27,7 @@ var (
 
 // The store is a kv store.
 type Store interface {
-	Get(namespace, typ, key string) ([]byte, error)
+	Get(namespace, typ, key string) ([]byte, *Metadata, error)
 	Add(namespace, typ, key string, value []byte) error
 	Update(namespace, typ, key string, value []byte) error
 	Del(namespace, typ, key string) error

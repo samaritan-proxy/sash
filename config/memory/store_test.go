@@ -17,6 +17,7 @@ package memory
 import (
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -30,25 +31,28 @@ func TestGetAndAdd(t *testing.T) {
 
 	assert.NoError(t, s.Add("a", "b", "c", []byte("hello")))
 
-	b, err := s.Get("a", "b", "c")
+	b, meta, err := s.Get("a", "b", "c")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("hello"), b)
+	assert.NotNil(t, meta)
+	assert.True(t, time.Since(meta.CreateTime) < time.Second)
+	assert.True(t, time.Since(meta.UpdateTime) < time.Second)
 
 	assert.True(t, s.Exist("a", "b", "c"))
 	assert.False(t, s.Exist("a", "d", "c"))
 
 	t.Run("bad key", func(t *testing.T) {
-		_, err := s.Get("a", "b", "foo")
+		_, _, err := s.Get("a", "b", "foo")
 		assert.Equal(t, config.ErrNotExist, err)
 	})
 
 	t.Run("bad type", func(t *testing.T) {
-		_, err = s.Get("a", "foo", "c")
+		_, _, err = s.Get("a", "foo", "c")
 		assert.Equal(t, config.ErrNotExist, err)
 	})
 
 	t.Run("bad namespace", func(t *testing.T) {
-		_, err = s.Get("foo", "b", "c")
+		_, _, err = s.Get("foo", "b", "c")
 		assert.Equal(t, config.ErrNotExist, err)
 	})
 }

@@ -189,21 +189,24 @@ func (c *Controller) getKeysWithRetry(ns, typ string) (keys []string, err error)
 	return
 }
 
-func (c *Controller) getValueWithRetry(ns, typ, key string) (value []byte, err error) {
+func (c *Controller) getValueWithRetry(ns, typ, key string) ([]byte, *Metadata, error) {
 	res, err := c.doRetry(func() (i interface{}, e error) {
-		i, e = c.store.Get(ns, typ, key)
+		b, meta, e := c.store.Get(ns, typ, key)
 		switch e {
+		case nil:
+			return [2]interface{}{b, meta}, nil
 		case ErrNotExist:
 			return nil, nil
 		default:
-			return
+			return nil, e
 		}
 	})
-	if err != nil {
-		return nil, err
+	if err != nil || res == nil {
+		return nil, nil, err
 	}
-	value, _ = res.([]byte)
-	return
+	value, _ := res.([2]interface{})[0].([]byte)
+	metadata, _ := res.([2]interface{})[1].(*Metadata)
+	return value, metadata, nil
 }
 
 func (c *Controller) fetchAll() (*Cache, error) {
@@ -218,7 +221,7 @@ func (c *Controller) fetchAll() (*Cache, error) {
 				continue
 			}
 			for _, key := range keys {
-				value, err := c.getValueWithRetry(ns, typ, key)
+				value, _, err := c.getValueWithRetry(ns, typ, key)
 				if err != nil {
 					return nil, err
 				}
@@ -336,7 +339,7 @@ func (c *Controller) RegisterEventHandler(handler EventHandler) {
 }
 
 // Get return config data by namespace, type and key.
-func (c *Controller) Get(namespace, typ, key string) ([]byte, error) {
+func (c *Controller) Get(namespace, typ, key string) ([]byte, *Metadata, error) {
 	return c.store.Get(namespace, typ, key)
 }
 
@@ -362,7 +365,7 @@ func (c *Controller) Del(namespace, typ, key string) error {
 
 // Exist return true if config data is exist.
 func (c *Controller) Exist(namespace, typ, key string) bool {
-	_, err := c.Get(namespace, typ, key)
+	_, _, err := c.Get(namespace, typ, key)
 	return err == nil
 }
 

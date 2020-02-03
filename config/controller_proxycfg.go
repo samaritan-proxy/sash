@@ -38,6 +38,16 @@ func (c *ProxyConfig) Verify() error {
 	return nil
 }
 
+func (c *ProxyConfig) Equal(that *ProxyConfig) bool {
+	if that == nil {
+		return c == nil
+	}
+	if that.ServiceName != c.ServiceName {
+		return false
+	}
+	return that.Config.Equal(c.Config)
+}
+
 // ProxyConfigs is a slice of ProxyConfig, impl the sort.Interface.
 type ProxyConfigs []*ProxyConfig
 
@@ -46,6 +56,18 @@ func (c ProxyConfigs) Len() int { return len(c) }
 func (c ProxyConfigs) Swap(i, j int) { c[i], c[j] = c[j], c[i] }
 
 func (c ProxyConfigs) Less(i, j int) bool { return c[i].ServiceName < c[j].ServiceName }
+
+func (c ProxyConfigs) Equal(that ProxyConfigs) bool {
+	if len(that) != len(c) {
+		return false
+	}
+	for idx, item := range that {
+		if !item.Equal(c[idx]) {
+			return false
+		}
+	}
+	return true
+}
 
 type ProxyConfigsController struct {
 	ctl *Controller
@@ -77,8 +99,8 @@ func (*ProxyConfigsController) marshallSvcCfg(cfg *service.Config) ([]byte, erro
 	return cfg.MarshalJSON()
 }
 
-func (c *ProxyConfigsController) get(svc string, from func(svc string) ([]byte, error)) (*ProxyConfig, error) {
-	b, err := from(svc)
+func (c *ProxyConfigsController) get(svc string, from func(svc string) ([]byte, *Metadata, error)) (*ProxyConfig, error) {
+	b, meta, err := from(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -90,21 +112,26 @@ func (c *ProxyConfigsController) get(svc string, from func(svc string) ([]byte, 
 		}
 		cfg = _cfg
 	}
-	return &ProxyConfig{
+	pCfg := &ProxyConfig{
 		ServiceName: svc,
 		Config:      cfg,
-	}, nil
+	}
+	if meta != nil {
+		pCfg.Metadata = *meta
+	}
+	return pCfg, err
 }
 
 func (c *ProxyConfigsController) Get(svc string) (*ProxyConfig, error) {
-	return c.get(svc, func(svc string) (bytes []byte, err error) {
+	return c.get(svc, func(svc string) ([]byte, *Metadata, error) {
 		return c.ctl.Get(c.getNamespace(), c.getType(), svc)
 	})
 }
 
 func (c *ProxyConfigsController) GetCache(svc string) (*ProxyConfig, error) {
-	return c.get(svc, func(svc string) (bytes []byte, err error) {
-		return c.ctl.GetCache(c.getNamespace(), c.getType(), svc)
+	return c.get(svc, func(svc string) ([]byte, *Metadata, error) {
+		b, err := c.ctl.GetCache(c.getNamespace(), c.getType(), svc)
+		return b, nil, err
 	})
 }
 
