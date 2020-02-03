@@ -36,6 +36,24 @@ func (d *Dependency) Verify() error {
 	return nil
 }
 
+func (d *Dependency) Equal(that *Dependency) bool {
+	if that == nil {
+		return d == nil
+	}
+	if that.ServiceName != d.ServiceName {
+		return false
+	}
+	if len(that.Dependencies) != len(d.Dependencies) {
+		return false
+	}
+	for idx, item := range that.Dependencies {
+		if item != d.Dependencies[idx] {
+			return false
+		}
+	}
+	return true
+}
+
 // Dependencies is a slice of Dependency, impl the sort.Interface.
 type Dependencies []*Dependency
 
@@ -44,6 +62,18 @@ func (d Dependencies) Len() int { return len(d) }
 func (d Dependencies) Swap(i, j int) { d[i], d[j] = d[j], d[i] }
 
 func (d Dependencies) Less(i, j int) bool { return d[i].ServiceName < d[j].ServiceName }
+
+func (d Dependencies) Equal(that Dependencies) bool {
+	if len(that) != len(d) {
+		return false
+	}
+	for idx, item := range that {
+		if !item.Equal(d[idx]) {
+			return false
+		}
+	}
+	return true
+}
 
 type DependenciesController struct {
 	sync.RWMutex
@@ -87,8 +117,8 @@ func (c *DependenciesController) loadHandlers() []DependencyEventHandler {
 	return hdls
 }
 
-func (c *DependenciesController) get(svc string, from func(svc string) ([]byte, error)) (*Dependency, error) {
-	b, err := from(svc)
+func (c *DependenciesController) get(svc string, from func(svc string) ([]byte, *Metadata, error)) (*Dependency, error) {
+	b, meta, err := from(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -100,14 +130,18 @@ func (c *DependenciesController) get(svc string, from func(svc string) ([]byte, 
 		}
 		rawDeps = _deps
 	}
-	return &Dependency{
+	dep := &Dependency{
 		ServiceName:  svc,
 		Dependencies: rawDeps,
-	}, nil
+	}
+	if meta != nil {
+		dep.Metadata = *meta
+	}
+	return dep, nil
 }
 
 func (c *DependenciesController) Get(svc string) (*Dependency, error) {
-	return c.get(svc, func(svc string) (bytes []byte, err error) {
+	return c.get(svc, func(svc string) ([]byte, *Metadata, error) {
 		return c.ctl.Get(c.getNamespace(), c.getType(), svc)
 	})
 }

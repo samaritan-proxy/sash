@@ -130,7 +130,7 @@ func TestDependenciesController_Get(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
 		dep, err := ctl.Get("svc")
 		assert.NoError(t, err)
-		assert.Equal(t, expectDep, dep)
+		assert.True(t, expectDep.Equal(dep))
 	})
 }
 
@@ -259,7 +259,7 @@ func TestDependenciesController_GetAll(t *testing.T) {
 		defer cancel()
 		deps, err := ctl.GetAll()
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, expectDeps, deps)
+		assert.True(t, expectDeps.Equal(deps))
 	})
 }
 

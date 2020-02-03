@@ -16,7 +16,9 @@ package memory
 
 import (
 	"bytes"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/samaritan-proxy/sash/config"
 )
@@ -26,6 +28,7 @@ type Store struct {
 	sync.RWMutex
 	evtCh       chan struct{}
 	configs     *config.Cache
+	metaData    map[string]*config.Metadata
 	subscribeNS map[string]struct{}
 }
 
@@ -34,15 +37,24 @@ func NewStore() *Store {
 	return &Store{
 		evtCh:       make(chan struct{}, 64),
 		configs:     config.NewCache(),
+		metaData:    make(map[string]*config.Metadata),
 		subscribeNS: make(map[string]struct{}),
 	}
 }
 
-func (s *Store) Get(namespace, typ, key string) ([]byte, error) {
+func (*Store) mergeKey(s ...string) string {
+	return strings.Join(s, "|")
+}
+
+func (s *Store) Get(namespace, typ, key string) ([]byte, *config.Metadata, error) {
 	s.RLock()
 	defer s.RUnlock()
 
-	return s.configs.Get(namespace, typ, key)
+	b, err := s.configs.Get(namespace, typ, key)
+	if err != nil {
+		return nil, nil, err
+	}
+	return b, s.metaData[s.mergeKey(namespace, typ, key)], nil
 }
 
 func (s *Store) Add(namespace, typ, key string, value []byte) error {
@@ -59,6 +71,10 @@ func (s *Store) Add(namespace, typ, key string, value []byte) error {
 	}
 
 	s.configs.Set(namespace, typ, key, value)
+	s.metaData[s.mergeKey(namespace, typ, key)] = &config.Metadata{
+		CreateTime: time.Now(),
+		UpdateTime: time.Now(),
+	}
 	if _, ok := s.subscribeNS[namespace]; ok {
 		s.evtCh <- struct{}{}
 	}
@@ -79,6 +95,7 @@ func (s *Store) Update(namespace, typ, key string, value []byte) error {
 	}
 
 	s.configs.Set(namespace, typ, key, value)
+	s.metaData[s.mergeKey(namespace, typ, key)].UpdateTime = time.Now()
 
 	if _, ok := s.subscribeNS[namespace]; ok && update {
 		s.evtCh <- struct{}{}
@@ -93,6 +110,7 @@ func (s *Store) Del(namespace, typ, key string) error {
 	if err := s.configs.Del(namespace, typ, key); err != nil {
 		return err
 	}
+	delete(s.metaData, s.mergeKey(namespace, typ, key))
 	if _, ok := s.subscribeNS[namespace]; ok {
 		s.evtCh <- struct{}{}
 	}

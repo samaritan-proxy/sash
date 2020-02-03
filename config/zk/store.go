@@ -17,6 +17,7 @@ package zk
 import (
 	"errors"
 	"path"
+	"time"
 
 	zkpkg "github.com/mesosphere/go-zookeeper/zk"
 
@@ -58,16 +59,20 @@ func NewWithConn(conn zk.Conn, basePath string) (*Store, error) {
 	return c, nil
 }
 
-func (s *Store) Get(namespace, typ, key string) ([]byte, error) {
+func (s *Store) Get(namespace, typ, key string) ([]byte, *config.Metadata, error) {
 	zPath := path.Join(s.basePath, namespace, typ, key)
-	b, _, err := s.conn.Get(zPath)
+	b, stat, err := s.conn.Get(zPath)
 	switch err {
 	case nil:
-		return b, nil
+		time.Now()
+		return b, &config.Metadata{
+			CreateTime: time.Unix(stat.Ctime/1000, 0),
+			UpdateTime: time.Unix(stat.Mtime/1000, 0),
+		}, nil
 	case zkpkg.ErrNoNode:
-		return nil, config.ErrNotExist
+		return nil, nil, config.ErrNotExist
 	default:
-		return nil, err
+		return nil, nil, err
 	}
 }
 

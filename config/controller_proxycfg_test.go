@@ -277,7 +277,7 @@ func TestProxyConfigsController_GetAll(t *testing.T) {
 		defer cancel()
 		configs, err := ctl.GetAll()
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, expectConfigs, configs)
+		assert.True(t, expectConfigs.Equal(configs))
 	})
 }
 

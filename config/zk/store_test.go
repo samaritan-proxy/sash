@@ -3,6 +3,7 @@ package zk
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	zkpkg "github.com/mesosphere/go-zookeeper/zk"
@@ -35,12 +36,15 @@ func TestStore_Get(t *testing.T) {
 
 	conn := zk.NewMockConn(ctrl)
 	conn.EXPECT().Get(gomock.Not(gomock.Eq("/configs/ns/type/key"))).Return(nil, nil, zkpkg.ErrNoNode)
-	conn.EXPECT().Get("/configs/ns/type/key").Return([]byte("value"), nil, nil)
+	conn.EXPECT().Get("/configs/ns/type/key").Return([]byte("value"), &zkpkg.Stat{
+		Ctime: time.Now().UnixNano() / int64(time.Millisecond),
+		Mtime: time.Now().UnixNano() / int64(time.Millisecond),
+	}, nil)
 
 	t.Run("no node error", func(t *testing.T) {
 		s, err := NewWithConn(conn, "/configs")
 		assert.NoError(t, err)
-		_, err = s.Get("ns", "type", "key1")
+		_, _, err = s.Get("ns", "type", "key1")
 		assert.Equal(t, config.ErrNotExist, err)
 	})
 
@@ -50,16 +54,19 @@ func TestStore_Get(t *testing.T) {
 		conn.EXPECT().Get(gomock.Any()).Return(nil, nil, targetErr)
 		s, err := NewWithConn(conn, "/configs")
 		assert.NoError(t, err)
-		_, err = s.Get("ns", "type", "key1")
+		_, _, err = s.Get("ns", "type", "key1")
 		assert.Equal(t, targetErr, err)
 	})
 
 	t.Run("correct", func(t *testing.T) {
 		s, err := NewWithConn(conn, "/configs")
 		assert.NoError(t, err)
-		value, err := s.Get("ns", "type", "key")
+		value, meta, err := s.Get("ns", "type", "key")
 		assert.NoError(t, err)
 		assert.Equal(t, []byte("value"), value)
+		assert.NotNil(t, meta)
+		assert.True(t, time.Since(meta.CreateTime) < time.Second)
+		assert.True(t, time.Since(meta.UpdateTime) < time.Second)
 	})
 }
 

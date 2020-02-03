@@ -17,6 +17,7 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -28,10 +29,18 @@ import (
 func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Dependencies, configs ProxyConfigs, instances Instances) *MockStore {
 	lock := new(sync.RWMutex)
 	cache := NewCache()
+
+	metadatas := make(map[string]*Metadata)
+	mergeKey := func(s ...string) string { return strings.Join(s, "|") }
+
 	for _, item := range dependencies {
 		b, err := json.Marshal(item.Dependencies)
 		assert.NoError(t, err)
 		cache.Set(NamespaceService, TypeServiceDependency, item.ServiceName, b)
+		metadatas[mergeKey(NamespaceService, TypeServiceDependency, item.ServiceName)] = &Metadata{
+			CreateTime: time.Now(),
+			UpdateTime: time.Now(),
+		}
 	}
 	for _, item := range configs {
 		var b []byte
@@ -41,11 +50,19 @@ func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Depende
 			b = _b
 		}
 		cache.Set(NamespaceService, TypeServiceProxyConfig, item.ServiceName, b)
+		metadatas[mergeKey(NamespaceService, TypeServiceProxyConfig, item.ServiceName)] = &Metadata{
+			CreateTime: time.Now(),
+			UpdateTime: time.Now(),
+		}
 	}
 	for _, item := range instances {
 		b, err := json.Marshal(item)
 		assert.NoError(t, err)
 		cache.Set(NamespaceSamaritan, TypeSamaritanInstance, item.ID, b)
+		metadatas[mergeKey(NamespaceSamaritan, TypeSamaritanInstance, item.ID)] = &Metadata{
+			CreateTime: time.Now(),
+			UpdateTime: time.Now(),
+		}
 	}
 
 	store := NewMockStore(mockCtl)
@@ -56,10 +73,11 @@ func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Depende
 		defer lock.RUnlock()
 		return cache.Keys(ns, typ)
 	}).AnyTimes()
-	store.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) ([]byte, error) {
+	store.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) ([]byte, *Metadata, error) {
 		lock.RLock()
 		defer lock.RUnlock()
-		return cache.Get(ns, typ, key)
+		b, err := cache.Get(ns, typ, key)
+		return b, metadatas[mergeKey(ns, typ, key)], err
 	}).AnyTimes()
 	store.EXPECT().Exist(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) bool {
 		lock.RLock()
@@ -75,6 +93,10 @@ func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Depende
 			return ErrExist
 		}
 		cache.Set(ns, typ, key, value)
+		metadatas[mergeKey(ns, typ, key)] = &Metadata{
+			CreateTime: time.Now(),
+			UpdateTime: time.Now(),
+		}
 		return nil
 	}).AnyTimes()
 	store.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string, value []byte) error {
@@ -85,11 +107,13 @@ func genMockStore(t *testing.T, mockCtl *gomock.Controller, dependencies Depende
 			return err
 		}
 		cache.Set(ns, typ, key, value)
+		metadatas[mergeKey(ns, typ, key)].UpdateTime = time.Now()
 		return nil
 	}).AnyTimes()
 	store.EXPECT().Del(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ns, typ, key string) error {
 		lock.Lock()
 		defer lock.Unlock()
+		delete(metadatas, mergeKey(ns, typ, key))
 		return cache.Del(ns, typ, key)
 	}).AnyTimes()
 	return store
@@ -123,7 +147,7 @@ func TestController_FetchAll(t *testing.T) {
 		NamespaceService,
 		gomock.Not(gomock.Eq(TypeServiceDependency)),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil)
+	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil, nil)
 
 	c := NewController(s)
 	all, err := c.fetchAll()
@@ -152,8 +176,8 @@ func TestController_FetchAllWithError(t *testing.T) {
 
 	t.Run("Get", func(t *testing.T) {
 		s := NewMockStore(ctrl)
-		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return([]string{"key"}, nil)
-		s.EXPECT().Get(NamespaceService, TypeServiceProxyConfig, "key").Return(nil, errors.New("err")).AnyTimes()
+		s.EXPECT().GetKeys(gomock.Any(), gomock.Any()).Return([]string{"key"}, nil).AnyTimes()
+		s.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, errors.New("err")).AnyTimes()
 		c := NewController(s)
 		_, err := c.fetchAll()
 		assert.Error(t, err)
@@ -225,7 +249,7 @@ func TestController_GetAndExist(t *testing.T) {
 		NamespaceService,
 		gomock.Not(gomock.Eq(TypeServiceDependency)),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil).AnyTimes()
+	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil, nil).AnyTimes()
 	c := NewController(s)
 	assert.NoError(t, c.Start())
 	// wait Controller init
@@ -240,7 +264,7 @@ func TestController_GetAndExist(t *testing.T) {
 			<-done
 		}, time.Second)
 	}()
-	b, err := c.Get(NamespaceService, TypeServiceDependency, "key")
+	b, _, err := c.Get(NamespaceService, TypeServiceDependency, "key")
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("value"), b)
 
@@ -292,7 +316,7 @@ func TestController_Del(t *testing.T) {
 		NamespaceService,
 		gomock.Not(gomock.Eq(TypeServiceDependency)),
 	).Return(nil, ErrNotExist).AnyTimes()
-	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), nil)
+	s.EXPECT().Get(NamespaceService, TypeServiceDependency, "key").Return([]byte("value"), &Metadata{}, nil)
 	s.EXPECT().Del(NamespaceService, TypeServiceDependency, "key").Return(nil)
 	c := NewController(s)
 	assert.NoError(t, c.Start())

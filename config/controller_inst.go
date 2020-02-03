@@ -55,10 +55,13 @@ func newInstancesController(ctl *Controller) *InstancesController {
 func (*InstancesController) getType() string      { return TypeSamaritanInstance }
 func (*InstancesController) getNamespace() string { return NamespaceSamaritan }
 
-func (*InstancesController) unmarshalInstance(b []byte) (*Instance, error) {
+func (*InstancesController) unmarshalInstance(b []byte, metadata *Metadata) (*Instance, error) {
 	inst := new(Instance)
 	if err := json.Unmarshal(b, inst); err != nil {
 		return nil, err
+	}
+	if metadata != nil {
+		inst.Metadata = *metadata
 	}
 	return inst, nil
 }
@@ -68,11 +71,11 @@ func (*InstancesController) marshalInstance(i *Instance) ([]byte, error) {
 }
 
 func (c *InstancesController) Get(id string) (*Instance, error) {
-	b, err := c.ctl.Get(c.getNamespace(), c.getType(), id)
+	b, meta, err := c.ctl.Get(c.getNamespace(), c.getType(), id)
 	if err != nil {
 		return nil, err
 	}
-	return c.unmarshalInstance(b)
+	return c.unmarshalInstance(b, meta)
 }
 
 func (c *InstancesController) GetCache(id string) (*Instance, error) {
@@ -80,7 +83,7 @@ func (c *InstancesController) GetCache(id string) (*Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	return c.unmarshalInstance(b)
+	return c.unmarshalInstance(b, nil)
 }
 
 func (c *InstancesController) Add(inst *Instance) error {
